@@ -2,7 +2,7 @@ services:
   - type: web
     name: aurevo-team-portal
     runtime: python
-    buildCommand: "./build.sh"
+    buildCommand: "bash build.sh"
     startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
     plan: free
     healthCheckPath: /health/
