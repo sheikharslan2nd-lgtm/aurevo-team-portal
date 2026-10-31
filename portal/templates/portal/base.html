@@ -9,7 +9,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="{% url 'home' %}"><span class="brand-mark">A</span><span>AUREVO <b>SYSTEM</b></span></a>
+    <a class="brand" href="{% url 'home' %}"><img class="brand-mark" src="{% static 'portal/logo.png' %}" alt="Aurevo System"><span>AUREVO <b>SYSTEM</b></span></a>
     <nav>
       {% if user.is_authenticated %}
         <a href="{% url 'home' %}">Home</a>
