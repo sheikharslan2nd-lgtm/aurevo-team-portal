@@ -15,6 +15,21 @@
   <div class="stat-card"><span>Countries / Cities</span><strong>{{ countries_count }} / {{ cities_count }}</strong></div>
   <div class="stat-card"><span>Niches / Methods</span><strong>{{ niches_count }} / {{ methods_count }}</strong></div>
 </div>
+<section class="panel tool-access-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">SHARED TOOL ACCESS</p>
+      <h2>PakSEO Tools — team login</h2>
+      <p class="muted">Shared credentials for the team. Update via Vercel env vars (PAKSEO_TOOL_*) if they change.</p>
+    </div>
+    <a class="btn primary" href="{{ pakseo_tool_url }}" target="_blank" rel="noopener">Open tool ↗</a>
+  </div>
+  <div class="tool-creds">
+    <div class="tool-cred"><span>URL</span><code>{{ pakseo_tool_url }}</code></div>
+    <div class="tool-cred"><span>Username</span><code>{{ pakseo_tool_username }}</code></div>
+    <div class="tool-cred"><span>Password</span><code>{{ pakseo_tool_password }}</code></div>
+  </div>
+</section>
 <section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Team members</h2></div><span class="muted">Approve or suspend accounts</span></div>
   <div class="table-scroll"><table><thead><tr><th>Member</th><th>Contact</th><th>Qualification</th><th>Skills</th><th>Status</th><th>Update</th></tr></thead><tbody>
   {% for p in profiles %}<tr><td><strong>{{ p.user.get_full_name|default:p.user.username }}</strong><small>@{{ p.user.username }} · {{ p.created_at|date:"Y-m-d" }}</small></td><td>{{ p.user.email }}<small>{{ p.whatsapp }}</small></td><td>{{ p.qualification|default:"—" }}<small>{{ p.experience }}</small></td><td>{{ p.skills|default:"—"|truncatechars:80 }}</td><td><span class="status-pill {{ p.status }}">{{ p.get_status_display }}</span></td><td><form method="post" action="{% url 'update_member_status' p.user.id %}" class="status-form">{% csrf_token %}<select name="status"><option value="pending" {% if p.status == "pending" %}selected{% endif %}>Pending</option><option value="active" {% if p.status == "active" %}selected{% endif %}>Active</option><option value="suspended" {% if p.status == "suspended" %}selected{% endif %}>Suspended</option></select><button class="btn primary small-btn" type="submit">Save</button></form></td></tr>
