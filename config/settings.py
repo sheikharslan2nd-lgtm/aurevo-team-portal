@@ -18,7 +18,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Shared SEO tool access (shown to every team member on the dashboard).
 PAKSEO_TOOL_URL = os.environ.get("PAKSEO_TOOL_URL", "https://app.pakseotools.com/member")
 PAKSEO_TOOL_USERNAME = os.environ.get("PAKSEO_TOOL_USERNAME", "alisheikhali384@gmail.com")
-PAKSEO_TOOL_PASSWORD = os.environ.get("PAKSEO_TOOL_PASSWORD", "123456")
+PAKSEO_TOOL_PASSWORD = os.environ.get("PAKSEO_TOOL_PASSWORD", "123456$")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
