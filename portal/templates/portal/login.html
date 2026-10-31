@@ -1,0 +1,16 @@
+{% extends "portal/base.html" %}
+{% block title %}Login · Aurevo Team{% endblock %}
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-intro"><p class="eyebrow">TEAM WORKSPACE</p><h1>Make outreach<br><span>measurable.</span></h1><p>Manage your targeting strategy, daily activity and lead-generation progress in one place.</p></div>
+  <div class="panel auth-panel"><h2>Welcome back</h2><p class="muted">Log in to your team account.</p>
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    <form method="post">{% csrf_token %}
+      <label>Username<input name="username" required autocomplete="username"></label>
+      <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+      <button class="btn primary full" type="submit">Login to portal</button>
+    </form>
+    <p class="small center">New team member? <a href="{% url 'register' %}">Create an account</a></p>
+  </div>
+</section>
+{% endblock %}

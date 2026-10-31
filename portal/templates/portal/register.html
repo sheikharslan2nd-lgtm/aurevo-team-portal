@@ -1,0 +1,16 @@
+{% extends "portal/base.html" %}
+{% block title %}Join Team · Aurevo System{% endblock %}
+{% block content %}
+<section class="auth-wrap register-wrap">
+  <div class="auth-intro"><p class="eyebrow">JOIN AUREVO SYSTEM</p><h1>Good teams<br><span>grow together.</span></h1><p>Tell us about your skills and experience. Your account will be reviewed by an administrator before you can access the portal.</p></div>
+  <div class="panel auth-panel"><h2>Create team account</h2>
+    <form method="post">{% csrf_token %}
+      {% for field in form %}
+        <label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+      {% endfor %}
+      <button class="btn primary full" type="submit">Submit registration</button>
+    </form>
+    <p class="small center">Already registered? <a href="{% url 'login' %}">Login</a></p>
+  </div>
+</section>
+{% endblock %}

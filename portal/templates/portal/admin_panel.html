@@ -1,0 +1,37 @@
+{% extends "portal/base.html" %}
+{% block title %}Admin Panel · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div><p class="eyebrow">ADMINISTRATION</p><h1>Team overview.</h1><p class="muted">Approve members, monitor outreach and review performance.</p></div>
+  <div class="hero-actions compact-actions">
+    <a class="btn secondary" href="/admin/">Open Django Admin ↗</a>
+    <a class="btn primary" href="/admin/portal/teammember/">Manage Team Members</a>
+  </div>
+</section>
+<div class="stats-grid">
+  <div class="stat-card"><span>Pending members</span><strong>{{ pending_count }}</strong></div>
+  <div class="stat-card"><span>Active members</span><strong>{{ active_count }}</strong></div>
+  <div class="stat-card"><span>Daily reports</span><strong>{{ report_count }}</strong></div>
+  <div class="stat-card"><span>Countries / Cities</span><strong>{{ countries_count }} / {{ cities_count }}</strong></div>
+  <div class="stat-card"><span>Niches / Methods</span><strong>{{ niches_count }} / {{ methods_count }}</strong></div>
+</div>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Team members</h2></div><span class="muted">Approve or suspend accounts</span></div>
+  <div class="table-scroll"><table><thead><tr><th>Member</th><th>Contact</th><th>Qualification</th><th>Skills</th><th>Status</th><th>Update</th></tr></thead><tbody>
+  {% for p in profiles %}<tr><td><strong>{{ p.user.get_full_name|default:p.user.username }}</strong><small>@{{ p.user.username }} · {{ p.created_at|date:"Y-m-d" }}</small></td><td>{{ p.user.email }}<small>{{ p.whatsapp }}</small></td><td>{{ p.qualification|default:"—" }}<small>{{ p.experience }}</small></td><td>{{ p.skills|default:"—"|truncatechars:80 }}</td><td><span class="status-pill {{ p.status }}">{{ p.get_status_display }}</span></td><td><form method="post" action="{% url 'update_member_status' p.user.id %}" class="status-form">{% csrf_token %}<select name="status"><option value="pending" {% if p.status == "pending" %}selected{% endif %}>Pending</option><option value="active" {% if p.status == "active" %}selected{% endif %}>Active</option><option value="suspended" {% if p.status == "suspended" %}selected{% endif %}>Suspended</option></select><button class="btn primary small-btn" type="submit">Save</button></form></td></tr>
+  {% empty %}<tr><td colspan="6" class="empty">No member registrations yet.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">TEAM ACTIVITY</p><h2>Latest daily reports</h2></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Member</th><th>Date</th><th>Emails</th><th>Messages</th><th>Calls</th><th>Replies</th><th>Interested</th><th>Meetings</th><th>Deals</th><th>Follow-ups</th><th>Notes</th></tr></thead><tbody>
+  {% for r in reports %}<tr><td>{{ r.member.username }}</td><td>{{ r.report_date }}</td><td>{{ r.emails_sent }}</td><td>{{ r.messages_sent }}</td><td>{{ r.calls_made }}</td><td>{{ r.replies_received }}</td><td>{{ r.interested_leads }}</td><td>{{ r.meetings_booked }}</td><td>{{ r.deals_closed }}</td><td>{{ r.followups }}</td><td>{{ r.notes|default:"—"|truncatechars:70 }}</td></tr>
+  {% empty %}<tr><td colspan="11" class="empty">No reports submitted yet.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">TARGETING PLANS</p><h2>Member strategies</h2></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Member</th><th>Country / City</th><th>Niche</th><th>Method</th><th>Strategy notes</th></tr></thead><tbody>
+  {% for s in strategies %}<tr><td>{{ s.member.username }}</td><td>{{ s.country.name }}<small>{{ s.city.name }}</small></td><td>{{ s.niche.name }}</td><td>{{ s.method.name }}</td><td>{{ s.notes|default:"—"|truncatechars:100 }}</td></tr>
+  {% empty %}<tr><td colspan="5" class="empty">No strategies submitted yet.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<p class="muted small">Reference data management: open Django Admin → Countries, Cities, Niches and Outreach methods.</p>
+{% endblock %}

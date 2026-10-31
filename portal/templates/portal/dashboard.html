@@ -1,0 +1,437 @@
+{% extends "portal/base.html" %}
+{% block title %}Team Dashboard · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div><p class="eyebrow">MEMBER WORKSPACE</p><h1>Welcome, {{ user.first_name|default:user.username }}.</h1><p class="muted">Your outreach strategy, daily performance and follow-ups.</p></div>
+  <div class="status-pill active">● Account active</div>
+</section>
+
+<section class="panel workflow-note">
+  <p class="eyebrow">SIMPLE WORKFLOW</p>
+  <h2>How your work continues</h2>
+  <p class="muted">When you log in again, your previously selected task remains available for you. Once you mark a task as completed, the next task becomes available. In simple words: finish one task, then the next task opens.</p>
+  <p class="muted"><strong>Payment logic:</strong> from the client payment, only deployment charges, platform fees, and tool charges are deducted. The remaining profit is then split 50/50 between you and the company.</p>
+</section>
+
+<section class="panel explorer-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">EXPLORE EVERYTHING</p>
+      <h2>All countries → all cities → all niches → sub &amp; micro niches</h2>
+      <p class="muted">Every country is listed below. Pick a country to load <strong>every city</strong> inside it, then pick a niche to see <strong>all of its sub-niches and micro-niches</strong>. Click any item to fill the strategy form.</p>
+      <p class="muted explorer-meta">{{ countries|length }} countries · {{ total_cities }} cities · {{ total_niches }} niches (main, sub &amp; micro)</p>
+    </div>
+    <div class="status-pill" id="explorer-summary">Nothing selected</div>
+  </div>
+
+  <div class="explorer-grid">
+    <div class="explorer-col">
+      <div class="explorer-head">
+        <span class="explorer-step">01</span>
+        <h3>All countries</h3>
+        <span class="explorer-count">{{ countries|length }}</span>
+      </div>
+      <input type="search" class="explorer-search" id="country-search" placeholder="Search all countries…" autocomplete="off">
+      <div class="explorer-list" id="country-list">
+        {% for country in countries %}
+          <button type="button" class="explorer-item" data-id="{{ country.id }}" data-name="{{ country.name }}">
+            <span>{{ country.name }}</span><small>{{ country.city_count }}</small>
+          </button>
+        {% empty %}
+          <p class="explorer-empty">No countries have been seeded yet. Run <code>python manage.py seed_locations</code>.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="explorer-col">
+      <div class="explorer-head">
+        <span class="explorer-step">02</span>
+        <h3>Cities</h3>
+        <span class="explorer-count" id="city-count">0</span>
+      </div>
+      <input type="search" class="explorer-search" id="city-search" placeholder="Search cities…" autocomplete="off" disabled>
+      <div class="explorer-list" id="city-list">
+        <p class="explorer-empty">Choose a country first.</p>
+      </div>
+    </div>
+
+    <div class="explorer-col">
+      <div class="explorer-head">
+        <span class="explorer-step">03</span>
+        <h3>All niches</h3>
+        <span class="explorer-count">{{ main_niches|length }}</span>
+      </div>
+      <input type="search" class="explorer-search" id="niche-search" placeholder="Search all niches…" autocomplete="off">
+      <div class="explorer-list" id="niche-list">
+        {% for niche in main_niches %}
+          <button type="button" class="explorer-item" data-id="{{ niche.id }}" data-name="{{ niche.name }}">
+            <span>{{ niche.name }}</span><small>{{ niche.sub_count }}</small>
+          </button>
+        {% empty %}
+          <p class="explorer-empty">No niches have been seeded yet. Run <code>python manage.py seed_locations</code>.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="explorer-col">
+      <div class="explorer-head">
+        <span class="explorer-step">04</span>
+        <h3>Sub &amp; micro niches</h3>
+        <span class="explorer-count" id="tree-count">0</span>
+      </div>
+      <input type="search" class="explorer-search" id="tree-search" placeholder="Search sub-niches and micro-niches…" autocomplete="off" disabled>
+      <div class="explorer-list explorer-tree" id="tree-list">
+        <p class="explorer-empty">Choose a niche to see every sub-niche and micro-niche.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="stats-grid">
+  <div class="stat-card"><span>Saved strategies</span><strong>{{ strategies|length }}</strong></div>
+  <div class="stat-card"><span>Reports shown</span><strong>{{ reports|length }}</strong></div>
+  <div class="stat-card"><span>Role</span><strong class="stat-word">Team member</strong></div>
+</div>
+<div class="content-grid">
+  <section class="panel"><div class="panel-heading"><div><p class="eyebrow">TARGETING</p><h2>Save a strategy</h2></div></div>
+    <form method="post" action="{% url 'add_strategy' %}" id="strategy-form">{% csrf_token %}
+      <div class="form-grid">
+        <label>Country{{ strategy_form.country }}</label>
+        <label>City{{ strategy_form.city }}</label>
+        <label>Main niche{{ strategy_form.niche_parent }}</label>
+        <label>Sub-niche{{ strategy_form.niche }}</label>
+        <label>Micro-niche <span class="label-hint">(optional)</span>{{ strategy_form.niche_micro }}</label>
+        <label>Outreach method{{ strategy_form.method }}</label>
+      </div>
+      <label>Personal strategy / notes{{ strategy_form.notes }}</label>
+      <button class="btn primary" type="submit">Save strategy</button>
+    </form>
+  </section>
+  <section class="panel"><div class="panel-heading"><div><p class="eyebrow">DAILY TRACKER</p><h2>Submit daily report</h2></div></div>
+    <form method="post" action="{% url 'save_report' %}">{% csrf_token %}
+      <div class="form-grid">
+        {% for field in report_form %}
+          {% if field.name != "notes" %}<label>{{ field.label }}{{ field }}</label>{% endif %}
+        {% endfor %}
+      </div>
+      <label>Notes{{ report_form.notes }}</label>
+      <button class="btn primary" type="submit">Save daily report</button>
+    </form>
+  </section>
+</div>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">YOUR WORK</p><h2>Saved strategies</h2></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Country / City</th><th>Niche</th><th>Method</th><th>Notes</th><th></th></tr></thead><tbody>
+  {% for s in strategies %}<tr><td>{{ s.country.name }}<small>{{ s.city.name }}</small></td><td>{{ s.niche.full_path }}</td><td>{{ s.method.name }}</td><td>{{ s.notes|default:"—"|truncatechars:90 }}</td><td><form method="post" action="{% url 'delete_strategy' s.id %}">{% csrf_token %}<button class="btn danger small-btn" type="submit" onclick="return confirm('Delete this strategy?')">Delete</button></form></td></tr>
+  {% empty %}<tr><td colspan="5" class="empty">No strategies yet. Add your first targeting strategy above.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">PERFORMANCE</p><h2>Your daily reports</h2></div></div>
+  <div class="table-scroll"><table><thead><tr><th>Date</th><th>Emails</th><th>Messages</th><th>Calls</th><th>Replies</th><th>Interested</th><th>Meetings</th><th>Deals</th><th>Follow-ups</th></tr></thead><tbody>
+  {% for r in reports %}<tr><td>{{ r.report_date }}</td><td>{{ r.emails_sent }}</td><td>{{ r.messages_sent }}</td><td>{{ r.calls_made }}</td><td>{{ r.replies_received }}</td><td>{{ r.interested_leads }}</td><td>{{ r.meetings_booked }}</td><td>{{ r.deals_closed }}</td><td>{{ r.followups }}</td></tr>
+  {% empty %}<tr><td colspan="9" class="empty">No reports submitted yet.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const byId = (id) => document.getElementById(id);
+  const CITY_URL = "{% url 'cities_for_country' %}";
+  const NICHE_BASE = "/niches/";
+
+  const formCountry = byId("id_country");
+  const formCity = byId("id_city");
+  const formParent = byId("id_niche_parent");
+  const formSub = byId("id_niche");
+  const formMicro = byId("id_niche_micro");
+
+  async function fetchJSON(url) {
+    const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+    if (!response.ok) throw new Error("Request failed (" + response.status + ")");
+    return response.json();
+  }
+
+  async function loadCities(countryId) {
+    if (!formCity) return [];
+    formCity.innerHTML = '<option value="">---------</option>';
+    if (!countryId) return [];
+    try {
+      const data = await fetchJSON(CITY_URL + "?country_id=" + encodeURIComponent(countryId));
+      const cities = data.cities || [];
+      for (const city of cities) {
+        const option = document.createElement("option");
+        option.value = city.id;
+        option.textContent = city.name;
+        formCity.appendChild(option);
+      }
+      return cities;
+    } catch (error) {
+      console.error("Could not load cities", error);
+      return [];
+    }
+  }
+
+  const loadTokens = new WeakMap();
+
+  async function loadChildren(select, parentId, placeholder) {
+    if (!select) return [];
+    const emptyOption = '<option value="">' + (placeholder || "---------") + "</option>";
+    const token = (loadTokens.get(select) || 0) + 1;
+    loadTokens.set(select, token);
+    select.innerHTML = emptyOption;
+    if (parentId) select.dataset.parentId = String(parentId);
+    else delete select.dataset.parentId;
+    if (!parentId) return [];
+    try {
+      const data = await fetchJSON(NICHE_BASE + encodeURIComponent(parentId) + "/");
+      if (loadTokens.get(select) !== token) return [];
+      const items = data.children || [];
+      select.innerHTML = emptyOption;
+      for (const item of items) {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name;
+        select.appendChild(option);
+      }
+      return items;
+    } catch (error) {
+      if (loadTokens.get(select) === token) console.error("Could not load niche options", error);
+      return [];
+    }
+  }
+
+  if (formCountry) formCountry.addEventListener("change", () => loadCities(formCountry.value));
+  if (formParent) {
+    formParent.addEventListener("change", async () => {
+      await loadChildren(formSub, formParent.value);
+      await loadChildren(formMicro, "");
+    });
+  }
+  if (formSub) formSub.addEventListener("change", () => loadChildren(formMicro, formSub.value));
+
+  if (formCountry && formCountry.value) loadCities(formCountry.value);
+  if (formParent && formParent.value) {
+    loadChildren(formSub, formParent.value).then(() => {
+      if (formSub.value) loadChildren(formMicro, formSub.value);
+    });
+  }
+
+  // ---------------- Explorer ----------------
+  const explorer = { country: null, city: null, niche: null, sub: null, micro: null };
+  const summary = byId("explorer-summary");
+  const countryList = byId("country-list");
+  const cityList = byId("city-list");
+  const nicheList = byId("niche-list");
+  const treeList = byId("tree-list");
+  const citySearch = byId("city-search");
+  const treeSearch = byId("tree-search");
+  const cityCount = byId("city-count");
+  const treeCount = byId("tree-count");
+  let cityItems = [];
+
+  function updateSummary() {
+    const parts = [explorer.country, explorer.city, explorer.niche, explorer.sub, explorer.micro].filter(Boolean);
+    summary.textContent = parts.length ? parts.join(" · ") : "Nothing selected";
+  }
+
+  function setActive(container, selector, id) {
+    if (!container) return;
+    container.querySelectorAll(selector).forEach((el) => el.classList.remove("active"));
+    if (id === null || id === undefined) return;
+    const target = container.querySelector('[data-id="' + id + '"]');
+    if (target) target.classList.add("active");
+  }
+
+  function filterList(container, query) {
+    if (!container) return;
+    const needle = (query || "").trim().toLowerCase();
+    container.querySelectorAll(".explorer-item").forEach((item) => {
+      const name = (item.dataset.name || "").toLowerCase();
+      item.style.display = !needle || name.indexOf(needle) !== -1 ? "" : "none";
+    });
+    container.querySelectorAll(".tree-sub").forEach((node) => {
+      const name = (node.dataset.name || "").toLowerCase();
+      const micros = Array.from(node.querySelectorAll(".micro-chip"));
+      const microMatch = micros.some((chip) => (chip.dataset.name || "").toLowerCase().indexOf(needle) !== -1);
+      node.style.display = !needle || name.indexOf(needle) !== -1 || microMatch ? "" : "none";
+    });
+  }
+
+  function bindSearch(input, container) {
+    if (!input || !container) return;
+    input.addEventListener("input", () => filterList(container, input.value));
+  }
+
+  async function selectCountry(button) {
+    explorer.country = button.dataset.name;
+    explorer.city = null;
+    setActive(countryList, ".explorer-item", button.dataset.id);
+    updateSummary();
+
+    if (formCountry) {
+      formCountry.value = button.dataset.id;
+      await loadCities(button.dataset.id);
+    }
+
+    cityCount.textContent = "…";
+    cityList.innerHTML = '<p class="explorer-empty">Loading every city…</p>';
+    try {
+      const data = await fetchJSON(CITY_URL + "?country_id=" + encodeURIComponent(button.dataset.id));
+      cityItems = data.cities || [];
+    } catch (error) {
+      console.error("Could not load cities", error);
+      cityItems = [];
+    }
+    renderCities();
+  }
+
+  function renderCities() {
+    cityCount.textContent = cityItems.length;
+    citySearch.disabled = !cityItems.length;
+    if (!cityItems.length) {
+      cityList.innerHTML = '<p class="explorer-empty">No cities found for this country.</p>';
+      return;
+    }
+    const fragment = document.createDocumentFragment();
+    for (const city of cityItems) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "explorer-item";
+      button.dataset.id = city.id;
+      button.dataset.name = city.name;
+      const label = document.createElement("span");
+      label.textContent = city.name;
+      button.appendChild(label);
+      button.addEventListener("click", () => selectCity(button, city));
+      fragment.appendChild(button);
+    }
+    cityList.innerHTML = "";
+    cityList.appendChild(fragment);
+    filterList(cityList, citySearch.value);
+  }
+
+  function selectCity(button, city) {
+    explorer.city = city.name;
+    setActive(cityList, ".explorer-item", city.id);
+    updateSummary();
+    if (formCity) formCity.value = city.id;
+  }
+
+  async function selectNiche(button) {
+    explorer.niche = button.dataset.name;
+    explorer.sub = null;
+    explorer.micro = null;
+    setActive(nicheList, ".explorer-item", button.dataset.id);
+    updateSummary();
+
+    if (formParent) {
+      formParent.value = button.dataset.id;
+      await loadChildren(formSub, button.dataset.id);
+      await loadChildren(formMicro, "");
+    }
+
+    treeCount.textContent = "…";
+    treeList.innerHTML = '<p class="explorer-empty">Loading all sub-niches and micro-niches…</p>';
+    let tree = { children: [] };
+    try {
+      tree = await fetchJSON(NICHE_BASE + encodeURIComponent(button.dataset.id) + "/tree/");
+    } catch (error) {
+      console.error("Could not load niche tree", error);
+    }
+    renderTree(tree.children || []);
+  }
+
+  function renderTree(children) {
+    const totalMicros = children.reduce((sum, child) => sum + (child.children || []).length, 0);
+    treeCount.textContent = children.length + " / " + totalMicros;
+    treeSearch.disabled = !children.length;
+    treeList.innerHTML = "";
+    if (!children.length) {
+      treeList.innerHTML = '<p class="explorer-empty">This niche has no sub-niches yet.</p>';
+      return;
+    }
+    for (const child of children) {
+      const node = document.createElement("details");
+      node.className = "tree-sub";
+      node.dataset.id = child.id;
+      node.dataset.name = child.name;
+
+      const head = document.createElement("summary");
+      const name = document.createElement("span");
+      name.textContent = child.name;
+      const count = document.createElement("small");
+      count.textContent = (child.children || []).length;
+      head.appendChild(name);
+      head.appendChild(count);
+      head.addEventListener("click", () => selectSub(child, node));
+      node.appendChild(head);
+
+      const chips = document.createElement("div");
+      chips.className = "micro-chips";
+      for (const micro of child.children || []) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "micro-chip";
+        chip.dataset.id = micro.id;
+        chip.dataset.name = micro.name;
+        chip.textContent = micro.name;
+        chip.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          selectMicro(child, micro, node, chip);
+        });
+        chips.appendChild(chip);
+      }
+      node.appendChild(chips);
+      treeList.appendChild(node);
+    }
+    filterList(treeList, treeSearch.value);
+  }
+
+  async function selectSub(child, node) {
+    explorer.sub = child.name;
+    explorer.micro = null;
+    updateSummary();
+    treeList.querySelectorAll("summary.active").forEach((el) => el.classList.remove("active"));
+    node.querySelector("summary").classList.add("active");
+    if (formSub) {
+      formSub.value = child.id;
+      if (formMicro && formMicro.dataset.parentId !== String(child.id)) {
+        await loadChildren(formMicro, child.id);
+      }
+    }
+  }
+
+  async function selectMicro(child, micro, node, chip) {
+    explorer.sub = child.name;
+    explorer.micro = micro.name;
+    updateSummary();
+    treeList.querySelectorAll(".micro-chip.active").forEach((el) => el.classList.remove("active"));
+    chip.classList.add("active");
+    if (formSub) {
+      formSub.value = child.id;
+      const hasMicro =
+        formMicro && Array.from(formMicro.options).some((option) => option.value === String(micro.id));
+      if (!hasMicro) await loadChildren(formMicro, child.id);
+    }
+    if (formMicro) formMicro.value = micro.id;
+  }
+
+  if (countryList) {
+    countryList.querySelectorAll(".explorer-item").forEach((button) => {
+      button.addEventListener("click", () => selectCountry(button));
+    });
+  }
+  if (nicheList) {
+    nicheList.querySelectorAll(".explorer-item").forEach((button) => {
+      button.addEventListener("click", () => selectNiche(button));
+    });
+  }
+
+  bindSearch(byId("country-search"), countryList);
+  bindSearch(byId("niche-search"), nicheList);
+  bindSearch(citySearch, cityList);
+  bindSearch(treeSearch, treeList);
+})();
+</script>
+{% endblock %}

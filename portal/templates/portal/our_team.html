@@ -1,0 +1,62 @@
+{% extends "portal/base.html" %}
+{% load static %}
+{% block title %}Our Team · Aurevo System{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <p class="eyebrow">TEAM CULTURE</p>
+  <h1>Our Team</h1>
+  <p class="muted">We believe in combining skills, experience, and collaboration to build stronger business opportunities and deliver better results for our clients.</p>
+</section>
+
+{% if team_members %}
+  <section class="team-grid">
+    {% for member in team_members %}
+      <article class="panel person-card">
+        {% if member.photo %}
+          <img class="team-photo" src="{{ member.photo.url }}" alt="{{ member.name }}">
+        {% else %}
+          <div class="avatar">{{ member.name|slice:':1' }}</div>
+        {% endif %}
+        <p class="team-role">{{ member.role }}</p>
+        <h3>{{ member.name }}</h3>
+        <p class="muted">{{ member.description }}</p>
+      </article>
+    {% endfor %}
+  </section>
+{% else %}
+  <section class="panel empty-state-panel">
+    <p class="eyebrow">COMING SOON</p>
+    <h2>Our team is being assembled.</h2>
+    <p class="muted">This section is intentionally empty until team members are added from the admin panel. Add a name, role, photo, and description to display profiles here.</p>
+  </section>
+{% endif %}
+
+<section class="panel section-block">
+  <p class="eyebrow">OUR APPROACH</p>
+  <h2>What makes our team work</h2>
+  <div class="feature-list">
+    <div>
+      <strong>Collaboration</strong>
+      <p>Every member brings their strengths, and together we create more effective solutions for clients.</p>
+    </div>
+    <div>
+      <strong>Learning</strong>
+      <p>We support growth, encourage new ideas, and help each other improve through practical work.</p>
+    </div>
+    <div>
+      <strong>Execution</strong>
+      <p>We focus on real business outcomes, quality delivery, and dependable communication with clients.</p>
+    </div>
+  </div>
+</section>
+
+<section class="panel cta-panel">
+  <p class="eyebrow">JOIN THE TEAM</p>
+  <h2>Bring your skills and grow with us.</h2>
+  <p class="muted">Whether you are a client handler, designer, developer, marketer, or creator, there is space for your contribution.</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="{% url 'register' %}">Join Aurevo</a>
+    <a class="btn secondary" href="{% url 'home' %}">Back to home</a>
+  </div>
+</section>
+{% endblock %}
