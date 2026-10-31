@@ -509,8 +509,19 @@ class Command(BaseCommand):
 
     def _seed_niches(self, niche_html_path):
         topics = _read_niche_hierarchy(niche_html_path) if niche_html_path else []
-        if not topics:
-            topics = [{"title": name, "items": []} for name in NICHE_NAMES]
+
+        # Keep every scraped topic AND every curated business niche, so the
+        # explorer lists the full universe of niches rather than one source.
+        merged = {}
+        for topic in topics:
+            key = (topic.get("title") or "").strip().casefold()
+            if key:
+                merged[key] = topic
+        for name in NICHE_NAMES:
+            key = name.strip().casefold()
+            if key and key not in merged:
+                merged[key] = {"title": name, "items": []}
+        topics = list(merged.values())
 
         # Level 1 + level 2 from the scraped niche list.
         for topic in topics:

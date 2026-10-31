@@ -57,8 +57,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+DB_CONN_MAX_AGE = int(os.environ.get("DB_CONN_MAX_AGE", "0"))
 if DATABASE_URL:
-    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)}
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL, conn_max_age=DB_CONN_MAX_AGE, ssl_require=True
+        )
+    }
 else:
     DATABASES = {
         "default": {
