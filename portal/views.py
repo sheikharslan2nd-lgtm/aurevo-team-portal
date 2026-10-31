@@ -66,14 +66,18 @@ def login_view(request):
         password = request.POST.get("password", "")
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            remember = request.POST.get("remember") == "on"
             if user.is_staff:
                 login(request, user)
+                # Keep staff sessions short unless "remember me" is chosen.
+                request.session.set_expiry(60 * 60 * 24 * 30 if remember else 0)
                 return redirect("admin_panel")
             _ensure_profile(user)
             if user.profile.status != "active":
                 error = "Your account is pending approval or has been suspended. Contact the admin."
             else:
                 login(request, user)
+                request.session.set_expiry(60 * 60 * 24 * 30 if remember else 0)
                 return redirect("dashboard")
         else:
             error = "Invalid username or password."

@@ -8,6 +8,7 @@
     <form method="post">{% csrf_token %}
       <label>Username<input name="username" required autocomplete="username"></label>
       <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+      <label class="remember-row"><input type="checkbox" name="remember" value="on"> Remember me on this device</label>
       <button class="btn primary full" type="submit">Login to portal</button>
     </form>
     <p class="small center">New team member? <a href="{% url 'register' %}">Create an account</a></p>
