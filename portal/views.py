@@ -197,14 +197,19 @@ def cities_for_country(request):
     except (TypeError, ValueError):
         return JsonResponse({"cities": []})
     cities = City.objects.filter(country_id=country_id).values("id", "name")
-    return JsonResponse({"cities": list(cities)})
+    response = JsonResponse({"cities": list(cities)})
+    # Seed data is immutable, so cache aggressively at the edge and in the browser.
+    response["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    return response
 
 
 @require_GET
 def niches_for_parent(request, parent_id):
     parent = get_object_or_404(Niche, pk=parent_id)
     children = list(parent.children.order_by("name").values("id", "name"))
-    return JsonResponse({"children": children})
+    response = JsonResponse({"children": children})
+    response["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    return response
 
 
 @require_GET
@@ -219,12 +224,14 @@ def niche_tree(request, niche_id):
         grouped[micro["parent_id"]].append({"id": micro["id"], "name": micro["name"]})
     for child in children:
         child["children"] = grouped.get(child["id"], [])
-    return JsonResponse(
+    response = JsonResponse(
         {
             "niche": {"id": niche.id, "name": niche.name, "parent_id": niche.parent_id},
             "children": children,
         }
     )
+    response["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    return response
 
 
 @login_required
