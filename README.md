@@ -71,22 +71,18 @@ Clicking a country, city, niche, sub-niche or micro-niche automatically fills th
 
 This project is configured for Render. Free plan terms and database-provider limits can change; check the providers' current pricing before production use. Render's free web service may sleep when idle, and free database providers can have limits.
 
-1. Push this folder to a private or public GitHub repository.
-2. Create a free PostgreSQL database with a provider such as Neon. Copy its PostgreSQL connection string (`postgresql://...`). Use the provider's pooled connection string if its docs recommend it for serverless/hosted apps.
-3. In Render, choose **New → Blueprint** and connect your repository. Render reads `render.yaml`.
-4. In the Render service environment, set `DATABASE_URL` to the PostgreSQL connection string. Do not commit this URL to GitHub.
-5. Deploy. The build script runs `collectstatic` and `migrate`.
-6. Once deployed, open the Render shell (or use Render's one-off shell if available) and run:
-   ```bash
-   python manage.py createsuperuser
-   python manage.py seed_locations
-   ```
-   If shell access is not available on the free plan, create a superuser using a temporary one-off command supported by your host, or run the project locally with the same `DATABASE_URL`:
-   ```bash
-   python manage.py createsuperuser
-   python manage.py seed_locations
-   ```
-7. Visit `/admin/`, log in, add cities/niches/methods, and approve team members.
+1. Push this folder to a GitHub repository (private is fine).
+2. Create a free PostgreSQL database at [Neon](https://neon.tech) (sign up with GitHub, no card). Create a project, then copy the **pooled** connection string — it looks like `postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`.
+3. In [Render](https://render.com), sign up with GitHub, then choose **New → Blueprint** and select this repository. Render reads `render.yaml`.
+4. When Render asks for environment variables, provide:
+   - `DATABASE_URL` — the Neon pooled connection string
+   - `DJANGO_SUPERUSER_USERNAME` — your admin username
+   - `DJANGO_SUPERUSER_EMAIL` — your email
+   - `DJANGO_SUPERUSER_PASSWORD` — a strong admin password
+5. Click **Deploy**. The build script runs `collectstatic`, `migrate`, `seed_locations` and `ensure_admin`, so the deployed database is filled with countries, cities, niches and the admin account automatically.
+6. Open the Render URL, log in with the admin credentials, approve team members under **Admin panel**, and share the URL with the team.
+
+`seed_locations` and `ensure_admin` are idempotent, so later deploys do not duplicate data or reset the admin password. If you change `DJANGO_SUPERUSER_PASSWORD` later it will **not** overwrite the existing password — change it from Django Admin instead.
 
 ### Important deployment notes
 - Never share `DJANGO_SECRET_KEY` or `DATABASE_URL`.
