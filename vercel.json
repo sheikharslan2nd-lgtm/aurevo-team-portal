@@ -1,8 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "config/wsgi.py": {
-      "maxDuration": 60
+  "services": {
+    "aurevo-team-portal": {
+      "functions": {
+        "config/wsgi.py": {
+          "maxDuration": 60
+        }
+      }
     }
   }
 }
