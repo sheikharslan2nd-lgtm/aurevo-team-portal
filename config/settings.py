@@ -89,6 +89,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 STATICFILES_DIRS = [BASE_DIR / "portal" / "static"]
+WHITENOISE_ROOT = BASE_DIR / "public"
 if DEBUG:
     staticfiles_backend = "django.contrib.staticfiles.storage.StaticFilesStorage"
 else:

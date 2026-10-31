@@ -85,10 +85,6 @@ def login_view(request):
 
 
 def home(request):
-    if request.user.is_authenticated:
-        if request.user.is_staff:
-            return redirect("admin_panel")
-        return redirect("dashboard")
     return render(request, "portal/home.html")
 
 
