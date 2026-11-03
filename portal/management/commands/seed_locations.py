@@ -528,7 +528,7 @@ class Command(BaseCommand):
             parent, _ = Niche.objects.get_or_create(
                 parent=None,
                 name=topic["title"],
-                defaults={"slug": slugify(topic["title"])},
+                defaults={"slug": slugify(topic["title"]), "search_keywords": niche_keywords(topic["title"])},
             )
             existing = set(parent.children.values_list("name", flat=True))
             seen = {name.casefold() for name in existing}
@@ -541,7 +541,7 @@ class Command(BaseCommand):
                 if key in seen:
                     continue
                 seen.add(key)
-                new_children.append(Niche(parent=parent, name=name[:180], slug=slugify(name)[:220]))
+                new_children.append(Niche(parent=parent, name=name[:180], slug=slugify(name)[:220], search_keywords=niche_keywords(name)))
             if new_children:
                 Niche.objects.bulk_create(new_children, batch_size=500, ignore_conflicts=True)
 
@@ -555,7 +555,7 @@ class Command(BaseCommand):
             if main.id in have_children:
                 continue
             for sub_name in generate_sub_niches(main.name):
-                new_subs.append(Niche(parent=main, name=sub_name[:180], slug=slugify(sub_name)[:220]))
+                new_subs.append(Niche(parent=main, name=sub_name[:180], slug=slugify(sub_name)[:220], search_keywords=niche_keywords(sub_name)))
         if new_subs:
             Niche.objects.bulk_create(new_subs, batch_size=500, ignore_conflicts=True)
 
@@ -571,9 +571,65 @@ class Command(BaseCommand):
             if sub_id in filled:
                 continue
             for micro_name in generate_micro_niches(sub_name):
-                new_micros.append(Niche(parent_id=sub_id, name=micro_name[:180], slug=slugify(micro_name)[:220]))
+                new_micros.append(Niche(parent_id=sub_id, name=micro_name[:180], slug=slugify(micro_name)[:220], search_keywords=niche_keywords(micro_name)))
         if new_micros:
             Niche.objects.bulk_create(new_micros, batch_size=1000, ignore_conflicts=True)
 
         for name in METHOD_NAMES:
-            OutreachMethod.objects.get_or_create(name=name)
+            OutreachMethod.objects.get_or_create(name=name, defaults={"approach_note": method_note(name)})
+
+        # Backfill English notes/keywords for rows created before these fields existed.
+        methods_to_update = []
+        for method in OutreachMethod.objects.all():
+            if not method.approach_note:
+                method.approach_note = method_note(method.name)
+                methods_to_update.append(method)
+        if methods_to_update:
+            OutreachMethod.objects.bulk_update(methods_to_update, ["approach_note"], batch_size=500)
+
+        niches_to_update = []
+        for niche in Niche.objects.all():
+            if not niche.search_keywords:
+                niche.search_keywords = niche_keywords(niche.name)
+                niches_to_update.append(niche)
+        if niches_to_update:
+            Niche.objects.bulk_update(niches_to_update, ["search_keywords"], batch_size=1000)
+
+
+
+METHOD_NOTES = {
+    "Cold Email": "How to approach: Build a targeted list of decision-makers, personalize the first line with a specific observation about their business, keep the email under 120 words, offer one clear value proposition and a low-friction CTA (15-min call). Send 3-5 follow-ups spaced 2-4 days apart, vary subject lines, and track opens/replies. Avoid spammy language and always include an easy opt-out.",
+    "LinkedIn Outreach": "How to approach: Optimize your profile headline for your niche, send connection requests with a short personalized note (no pitch), then follow up after acceptance with a value-first message. Engage with their posts before pitching, use voice notes for warmth, and move qualified leads to a call. Limit to ~20-40 personalized touches per day to stay safe.",
+    "WhatsApp": "How to approach: Only message business numbers or opted-in contacts, greet by name, state how you found them, and share a concise offer with one link. Use voice notes and quick replies, avoid bulk blasts, and respect time zones. Follow up once or twice; stop if no response.",
+    "Instagram DM": "How to approach: Engage genuinely with 2-3 of their recent posts first, then DM a short compliment plus a relevant question. Keep the pitch out of the first message, use Stories replies to start conversations, and move interested leads to email/call. Avoid automation that looks spammy.",
+    "Facebook": "How to approach: Join and participate in niche groups, answer questions helpfully, then DM members who show intent. On Pages, use Messenger with a clear, friendly opener and a single CTA. Personalize by referencing their content and avoid mass messaging.",
+    "Phone Calls": "How to approach: Call with a 10-second opener: who you are, why you are calling, and a permission question. Have a 30-second value statement ready, ask 2-3 discovery questions, and book the next step before hanging up. Call mid-morning or mid-afternoon; leave short voicemails.",
+    "Google Maps Leads": "How to approach: Search Google Maps for your niche + city, collect business name, phone, website and rating, then reach out by phone or email referencing their listing and reviews. Prioritize businesses with weak websites or low review counts where your service adds clear value.",
+    "Contact Form": "How to approach: Submit a short, specific message: who you are, the exact issue you noticed on their site, and one improvement you can deliver. Include a link to a relevant case study and request a quick call. Follow up by email to the same contact.",
+    "Referral": "How to approach: Ask happy clients for introductions with a specific ask (name + company), provide a short forwardable blurb, and make it easy. Offer a small thank-you or reciprocal referral. Track referrals and close the loop with updates.",
+    "In-person": "How to approach: Visit during off-peak hours, dress appropriately, bring a one-page leave-behind, and ask for the owner/manager. Lead with a compliment and one insight, then request a 10-minute follow-up. Log every visit and revisit promising spots.",
+    "SMS Outreach": "How to approach: Only text opted-in contacts, keep messages under 160 chars, identify yourself and business, and include one link. Respect quiet hours and provide STOP. Use sparingly for high-intent follow-ups.",
+    "Telegram Outreach": "How to approach: Engage in niche Telegram groups, share useful resources, then DM interested members. Keep messages short, avoid mass DMs, and move leads to a call. Respect group rules.",
+    "Cold Calling": "How to approach: Use a proven script with a pattern interrupt, permission-based opener, and 2-3 qualifying questions. Handle objections with empathy, schedule callbacks, and aim for conversations not closes. Track dials, connects and meetings daily.",
+    "CRM Follow-up": "How to approach: Keep every lead in the CRM with next-action dates, segment by stage, and run scheduled follow-up sequences. Personalize each touch, log outcomes, and escalate hot leads to a call. Review pipeline weekly.",
+    "Email Follow-up": "How to approach: Reply in the same thread, reference the previous message, and add new value or a case study. Keep it short, ask one question, and offer an easy next step. Space follow-ups 2-4 days apart and stop after 4-5 touches.",
+    "Video Call": "How to approach: Book a short discovery call, share a brief agenda, and lead with questions. Demo only after understanding their needs, then agree on next steps and send a recap with a proposal. Record with permission.",
+    "Professional Network": "How to approach: Tap alumni, former colleagues and industry peers for warm introductions. Be specific about who you help and the outcome, and offer value in return. Follow up with a thank-you and updates.",
+    "Local Community Outreach": "How to approach: Attend local events, meetups and chambers, introduce yourself naturally, and collect contacts. Share a helpful resource, book 1-1s, and run a local offer. Be consistent and visible in the community.",
+}
+
+def method_note(name):
+    return METHOD_NOTES.get(name, "How to approach: Research the prospect, personalize your message, lead with value, and end with a single clear call-to-action. Follow up 2-3 times, track responses, and refine your script based on what works.")
+
+def niche_keywords(name):
+    terms = [
+        name,
+        f"{name} services",
+        f"{name} company",
+        f"{name} agency",
+        f"{name} near me",
+        f"hire {name}",
+        f"{name} providers",
+        f"best {name}",
+    ]
+    return ", ".join(dict.fromkeys(terms))

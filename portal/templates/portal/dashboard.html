@@ -137,6 +137,14 @@
         <label>Micro-niche <span class="label-hint">(optional)</span>{{ strategy_form.niche_micro }}</label>
         <label>Outreach method{{ strategy_form.method }}</label>
       </div>
+      <div id="niche-keywords-box" class="hint-box" style="display:none;">
+        <strong>Search keywords for selected niche:</strong>
+        <span id="niche-keywords"></span>
+      </div>
+      <div id="method-note-box" class="hint-box" style="display:none;">
+        <strong>How to approach using this method:</strong>
+        <p id="method-note"></p>
+      </div>
       <label>Personal strategy / notes{{ strategy_form.notes }}</label>
       <button class="btn primary" type="submit">Save strategy</button>
     </form>
@@ -242,6 +250,54 @@
     });
   }
   if (formSub) formSub.addEventListener("change", () => loadChildren(formMicro, formSub.value));
+
+  // ---- Live notes / keywords ----
+  const methodNotes = {{ method_notes_json|safe }};
+  const methodSelect = byId("id_method");
+  const nicheKeywordsBox = byId("niche-keywords-box");
+  const nicheKeywordsSpan = byId("niche-keywords");
+  const methodNoteBox = byId("method-note-box");
+  const methodNoteP = byId("method-note");
+
+  function updateMethodNote() {
+    if (!methodSelect || !methodNoteBox || !methodNoteP) return;
+    const id = methodSelect.value;
+    const note = id ? (methodNotes[id] || "") : "";
+    if (note) { methodNoteP.textContent = note; methodNoteBox.style.display = ""; }
+    else { methodNoteP.textContent = ""; methodNoteBox.style.display = "none"; }
+  }
+  if (methodSelect) { methodSelect.addEventListener("change", updateMethodNote); updateMethodNote(); }
+
+  async function fetchNicheInfo(nicheId) {
+    if (!nicheId) return null;
+    try {
+      const res = await fetch("/niches/" + encodeURIComponent(nicheId) + "/info/");
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) { console.error("Could not load niche info", e); return null; }
+  }
+
+  function leafNicheId() {
+    if (formMicro && formMicro.value) return formMicro.value;
+    if (formSub && formSub.value) return formSub.value;
+    if (formParent && formParent.value) return formParent.value;
+    return "";
+  }
+
+  async function updateNicheKeywords() {
+    if (!nicheKeywordsBox || !nicheKeywordsSpan) return;
+    const id = leafNicheId();
+    if (!id) { nicheKeywordsSpan.textContent = ""; nicheKeywordsBox.style.display = "none"; return; }
+    const info = await fetchNicheInfo(id);
+    const kw = info && info.keywords ? info.keywords : "";
+    if (kw) { nicheKeywordsSpan.textContent = kw; nicheKeywordsBox.style.display = ""; }
+    else { nicheKeywordsSpan.textContent = ""; nicheKeywordsBox.style.display = "none"; }
+  }
+
+  if (formParent) formParent.addEventListener("change", () => { updateNicheKeywords(); });
+  if (formSub) formSub.addEventListener("change", () => { updateNicheKeywords(); });
+  if (formMicro) formMicro.addEventListener("change", () => { updateNicheKeywords(); });
+  updateNicheKeywords();
 
   if (formCountry && formCountry.value) loadCities(formCountry.value);
   if (formParent && formParent.value) {
@@ -363,6 +419,7 @@
       await loadChildren(formSub, button.dataset.id);
       await loadChildren(formMicro, "");
     }
+    if (typeof updateNicheKeywords === "function") updateNicheKeywords();
 
     treeCount.textContent = "…";
     treeList.innerHTML = '<p class="explorer-empty">Loading all sub-niches and micro-niches…</p>';
@@ -434,6 +491,7 @@
         await loadChildren(formMicro, child.id);
       }
     }
+    if (typeof updateNicheKeywords === "function") updateNicheKeywords();
   }
 
   async function selectMicro(child, micro, node, chip) {
@@ -449,6 +507,7 @@
       if (!hasMicro) await loadChildren(formMicro, child.id);
     }
     if (formMicro) formMicro.value = micro.id;
+    if (typeof updateNicheKeywords === "function") updateNicheKeywords();
   }
 
   if (countryList) {

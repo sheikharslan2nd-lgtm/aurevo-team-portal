@@ -67,6 +67,10 @@ class Niche(models.Model):
     parent = models.ForeignKey("self", on_delete=models.CASCADE, related_name="children", null=True, blank=True)
     slug = models.SlugField(max_length=220, blank=True)
     description = models.TextField(blank=True)
+    search_keywords = models.TextField(
+        blank=True,
+        help_text="Comma-separated search keywords/terms to find prospects in this niche (English).",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -92,6 +96,10 @@ class Niche(models.Model):
 
 class OutreachMethod(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    approach_note = models.TextField(
+        blank=True,
+        help_text="Detailed English note on how to approach prospects using this method.",
+    )
 
     class Meta:
         ordering = ["name"]

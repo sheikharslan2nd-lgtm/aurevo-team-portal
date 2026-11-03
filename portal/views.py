@@ -127,6 +127,7 @@ def dashboard(request):
         ).order_by("name"),
         "total_cities": City.objects.count(),
         "total_niches": Niche.objects.count(),
+        "method_notes_json": json.dumps({m.id: m.approach_note for m in OutreachMethod.objects.all()}),
     }
     return render(request, "portal/dashboard.html", context)
 
@@ -230,6 +231,20 @@ def niche_tree(request, niche_id):
             "children": children,
         }
     )
+    response["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+    return response
+
+
+@require_GET
+def niche_info(request, niche_id):
+    niche = get_object_or_404(Niche, pk=niche_id)
+    data = {
+        "id": niche.id,
+        "name": niche.name,
+        "full_path": niche.full_path,
+        "keywords": niche.search_keywords,
+    }
+    response = JsonResponse(data)
     response["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
     return response
 

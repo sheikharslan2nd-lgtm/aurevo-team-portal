@@ -15,6 +15,7 @@ urlpatterns = [
     path("cities/", views.cities_for_country, name="cities_for_country"),
     path("niches/<int:parent_id>/", views.niches_for_parent, name="niches_for_parent"),
     path("niches/<int:niche_id>/tree/", views.niche_tree, name="niche_tree"),
+    path("niches/<int:niche_id>/info/", views.niche_info, name="niche_info"),
     path("admin-panel/", views.admin_panel, name="admin_panel"),
     path("admin-panel/member/<int:user_id>/status/", views.update_member_status, name="update_member_status"),
 ]
