@@ -287,3 +287,17 @@ def update_member_status(request, user_id):
         profile.save(update_fields=["status"])
         messages.success(request, f"{user.username} status updated to {status}.")
     return redirect("admin_panel")
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def delete_member(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+    if user.is_staff:
+        messages.error(request, "Admin accounts cannot be deleted from this panel.")
+        return redirect("admin_panel")
+    username = user.username
+    user.delete()
+    messages.success(request, f"Team member '{username}' deleted.")
+    return redirect("admin_panel")
