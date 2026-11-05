@@ -16,6 +16,23 @@ class RegisterForm(forms.Form):
     qualification = forms.CharField(max_length=160, required=False)
     skills = forms.CharField(widget=forms.Textarea, required=False)
     experience = forms.CharField(max_length=160, required=False)
+    referred_by = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        label="Team leader reference",
+        empty_label="Select the team leader who referred you",
+        help_text="Choose the team leader you are joining under.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        leaders = User.objects.filter(profile__role="leader", profile__status="active").order_by(
+            "first_name", "last_name", "username"
+        )
+        self.fields["referred_by"].queryset = leaders
+        if leaders.exists():
+            self.fields["referred_by"].required = True
+            self.fields["referred_by"].empty_label = "Select your team leader"
 
     def clean_username(self):
         username = self.cleaned_data["username"].strip()
@@ -149,3 +166,39 @@ class DailyReportForm(forms.ModelForm):
             "report_date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Progress, client responses, blockers..."})
         }
+
+
+class TeamLeaderCreateForm(forms.Form):
+    username = forms.CharField(max_length=150, label="Username")
+    email = forms.EmailField()
+    first_name = forms.CharField(max_length=150, label="First name")
+    last_name = forms.CharField(max_length=150, required=False, label="Last name")
+    whatsapp = forms.CharField(max_length=40)
+    qualification = forms.CharField(max_length=160, required=False)
+    experience = forms.CharField(max_length=160, required=False)
+    skills = forms.CharField(widget=forms.Textarea, required=False)
+    password1 = forms.CharField(widget=forms.PasswordInput, label="Password")
+    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm password")
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise ValidationError("This username is already registered.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError("This email is already registered.")
+        return email
+
+    def clean(self):
+        data = super().clean()
+        if data.get("password1") and data.get("password2") and data["password1"] != data["password2"]:
+            self.add_error("password2", "Passwords do not match.")
+        if data.get("password1"):
+            try:
+                validate_password(data["password1"])
+            except ValidationError as exc:
+                self.add_error("password1", exc)
+        return data

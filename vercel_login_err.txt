@@ -1,0 +1,3 @@
+npm error code ECOMPROMISED
+npm error Lock compromised
+npm error A complete log of this run can be found in: C:\Users\Sheikh Arslan\AppData\Local\npm-cache\_logs\2026-11-03T19_17_23_596Z-debug-0.log

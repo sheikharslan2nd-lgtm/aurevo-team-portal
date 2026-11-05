@@ -9,16 +9,38 @@ class MemberProfile(models.Model):
         ("active", "Active"),
         ("suspended", "Suspended"),
     ]
+    ROLE_CHOICES = [
+        ("member", "Team member"),
+        ("leader", "Team leader"),
+    ]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     whatsapp = models.CharField(max_length=40, blank=True)
     qualification = models.CharField(max_length=160, blank=True)
     skills = models.TextField(blank=True)
     experience = models.CharField(max_length=160, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="pending")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="member")
+    referred_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="team_members",
+        limit_choices_to={"profile__role": "leader"},
+        help_text="Team leader who referred this member.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def is_leader(self):
+        return self.role == "leader"
+
+    @property
+    def team_size(self):
+        return self.user.team_members.count()
+
     def __str__(self):
-        return f"{self.user.username} ({self.status})"
+        return f"{self.user.username} ({self.get_role_display()} · {self.status})"
 
 
 class TeamMember(models.Model):

@@ -44,3 +44,18 @@
 
 .hint-box{margin:0 0 16px;padding:14px 16px;border:1px solid #2d4a2d;border-radius:10px;background:#0f1a10;color:#dce7d9;font-size:13px;line-height:1.6}.hint-box strong{color:var(--lime);display:block;margin-bottom:6px}.hint-box p{margin:6px 0 0;white-space:pre-wrap}.hint-box small{display:block;margin-top:6px;color:var(--muted)}
 
+
+/* ---------- Team leader portal ---------- */
+.role-pill{display:inline-block;padding:6px 10px;border-radius:99px;background:#1c211c;color:#b9c3b8;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.role-pill.leader{background:#243216;color:var(--lime);border:1px solid #3c5522}
+.member-link{color:var(--text);font-weight:600}
+.member-link:hover{color:var(--lime);opacity:1}
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}
+.mini-stats>div{border:1px solid #232c23;border-radius:10px;background:#0d110e;padding:12px 13px}
+.mini-stats span{display:block;color:var(--muted);font-size:10px;margin-bottom:6px}
+.mini-stats strong{font-family:'Space Grotesk',sans-serif;font-size:21px;letter-spacing:-.03em}
+.detail-list{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin:0 0 18px}
+.detail-list dt{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.detail-list dd{margin:0;font-size:13px;color:var(--text);word-break:break-word}
+.status-form select[name="referred_by"]{min-width:170px}
+@media(max-width:560px){.detail-list{grid-template-columns:1fr}}

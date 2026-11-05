@@ -1,0 +1,36 @@
+Watching for file changes with StatReloader
+[04/Nov/2026 19:17:10] "GET /health/ HTTP/1.1" 200 16
+[04/Nov/2026 19:17:11,110] - Broken pipe from ('127.0.0.1', 60569)
+[04/Nov/2026 19:24:35] "GET /health/ HTTP/1.1" 200 16
+[04/Nov/2026 19:24:35,864] - Broken pipe from ('127.0.0.1', 60689)
+[04/Nov/2026 19:25:15] "GET /login/ HTTP/1.1" 200 1774
+[04/Nov/2026 19:25:16] "GET /static/portal/style.css HTTP/1.1" 200 16727
+[04/Nov/2026 19:25:16] "GET /static/portal/logo.png HTTP/1.1" 200 2027
+[04/Nov/2026 19:25:21] "POST /login/ HTTP/1.1" 302 0
+[04/Nov/2026 19:25:25] "GET /dashboard/ HTTP/1.1" 200 127097
+Not Found: /favicon.ico
+[04/Nov/2026 19:25:26] "GET /favicon.ico HTTP/1.1" 404 7160
+[04/Nov/2026 19:25:28] "GET /niches/309/ HTTP/1.1" 200 1937
+[04/Nov/2026 19:25:28] "GET /niches/309/info/ HTTP/1.1" 200 312
+[04/Nov/2026 19:25:28] "GET /niches/309/tree/ HTTP/1.1" 200 14726
+[04/Nov/2026 19:25:49] "GET /login/ HTTP/1.1" 200 1774
+[04/Nov/2026 19:25:49] "GET /static/portal/style.css HTTP/1.1" 200 16741
+[04/Nov/2026 19:25:49] "GET /static/portal/logo.png HTTP/1.1" 200 2027
+Not Found: /favicon.ico
+[04/Nov/2026 19:25:51] "GET /favicon.ico HTTP/1.1" 404 7160
+[04/Nov/2026 19:25:54] "POST /login/ HTTP/1.1" 302 0
+[04/Nov/2026 19:25:54] "GET /dashboard/ HTTP/1.1" 200 127097
+[04/Nov/2026 19:25:54] "GET /static/portal/style.css HTTP/1.1" 304 0
+[04/Nov/2026 19:25:56] "GET /niches/309/ HTTP/1.1" 200 1937
+[04/Nov/2026 19:25:56] "GET /niches/309/info/ HTTP/1.1" 200 312
+[04/Nov/2026 19:25:57] "GET /niches/309/tree/ HTTP/1.1" 200 14726
+[04/Nov/2026 19:30:50] "GET /login/ HTTP/1.1" 200 1774
+[04/Nov/2026 19:30:50] "GET /static/portal/style.css HTTP/1.1" 200 16741
+[04/Nov/2026 19:30:50] "GET /static/portal/logo.png HTTP/1.1" 200 2027
+Not Found: /favicon.ico
+[04/Nov/2026 19:30:52] "GET /favicon.ico HTTP/1.1" 404 7160
+[04/Nov/2026 19:30:54] "POST /login/ HTTP/1.1" 302 0
+[04/Nov/2026 19:30:55] "GET /admin-panel/ HTTP/1.1" 200 11000
+[04/Nov/2026 19:30:55] "GET /admin-panel/ HTTP/1.1" 200 11000
+[04/Nov/2026 19:30:57] "POST /admin-panel/member/11/delete/ HTTP/1.1" 302 0
+[04/Nov/2026 19:30:57] "GET /admin-panel/ HTTP/1.1" 200 10072

@@ -1,0 +1,105 @@
+{% extends "portal/base.html" %}
+{% block title %}{{ member.get_full_name|default:member.username }} · Team Leader Portal{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div>
+    <p class="eyebrow">MEMBER PERFORMANCE</p>
+    <h1>{{ member.get_full_name|default:member.username }}.</h1>
+    <p class="muted">@{{ member.username }} · {% if profile.referred_by %}Referred by {{ profile.referred_by.get_full_name|default:profile.referred_by.username }}{% else %}Direct registration{% endif %}</p>
+  </div>
+  <div class="hero-actions compact-actions">
+    <span class="status-pill {{ profile.status }}">{{ profile.get_status_display }}</span>
+    <a class="btn secondary" href="{% url back_url %}">← Back</a>
+  </div>
+</section>
+
+<div class="content-grid">
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">PROFILE</p><h2>Member details</h2></div></div>
+    <dl class="detail-list">
+      <div><dt>Full name</dt><dd>{{ member.get_full_name|default:"—" }}</dd></div>
+      <div><dt>Email</dt><dd>{{ member.email|default:"—" }}</dd></div>
+      <div><dt>WhatsApp</dt><dd>{{ profile.whatsapp|default:"—" }}</dd></div>
+      <div><dt>Qualification</dt><dd>{{ profile.qualification|default:"—" }}</dd></div>
+      <div><dt>Experience</dt><dd>{{ profile.experience|default:"—" }}</dd></div>
+      <div><dt>Joined</dt><dd>{{ profile.created_at|date:"Y-m-d" }}</dd></div>
+    </dl>
+    {% if profile.skills %}<div class="hint-box"><strong>Skills</strong><p>{{ profile.skills }}</p></div>{% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">LAST 7 DAYS</p><h2>This week</h2></div><span class="muted">{{ report_count }} report{{ report_count|pluralize }} total</span></div>
+    <div class="mini-stats">
+      <div><span>Emails</span><strong>{{ week_totals.emails|default:0 }}</strong></div>
+      <div><span>Messages</span><strong>{{ week_totals.messages|default:0 }}</strong></div>
+      <div><span>Calls</span><strong>{{ week_totals.calls|default:0 }}</strong></div>
+      <div><span>Replies</span><strong>{{ week_totals.replies|default:0 }}</strong></div>
+      <div><span>Interested</span><strong>{{ week_totals.interested|default:0 }}</strong></div>
+      <div><span>Meetings</span><strong>{{ week_totals.meetings|default:0 }}</strong></div>
+      <div><span>Deals</span><strong>{{ week_totals.deals|default:0 }}</strong></div>
+      <div><span>Follow-ups</span><strong>{{ week_totals.followups|default:0 }}</strong></div>
+    </div>
+    <p class="muted small">Last report: {{ last_report.report_date|default:"No reports yet" }}</p>
+  </section>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card"><span>Total emails</span><strong>{{ totals.emails|default:0 }}</strong></div>
+  <div class="stat-card"><span>Total messages</span><strong>{{ totals.messages|default:0 }}</strong></div>
+  <div class="stat-card"><span>Total calls</span><strong>{{ totals.calls|default:0 }}</strong></div>
+  <div class="stat-card"><span>Total replies</span><strong>{{ totals.replies|default:0 }}</strong></div>
+  <div class="stat-card"><span>Interested leads</span><strong>{{ totals.interested|default:0 }}</strong></div>
+  <div class="stat-card"><span>Meetings booked</span><strong>{{ totals.meetings|default:0 }}</strong></div>
+  <div class="stat-card"><span>Deals closed</span><strong>{{ totals.deals|default:0 }}</strong></div>
+  <div class="stat-card"><span>Follow-ups</span><strong>{{ totals.followups|default:0 }}</strong></div>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-heading"><div><p class="eyebrow">DAILY REPORTS</p><h2>Performance history</h2></div><span class="muted">Latest 30 reports</span></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Date</th><th>Emails</th><th>Messages</th><th>Calls</th><th>Replies</th><th>Interested</th><th>Meetings</th><th>Deals</th><th>Follow-ups</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for r in reports %}
+        <tr>
+          <td>{{ r.report_date }}</td>
+          <td>{{ r.emails_sent }}</td>
+          <td>{{ r.messages_sent }}</td>
+          <td>{{ r.calls_made }}</td>
+          <td>{{ r.replies_received }}</td>
+          <td>{{ r.interested_leads }}</td>
+          <td>{{ r.meetings_booked }}</td>
+          <td>{{ r.deals_closed }}</td>
+          <td>{{ r.followups }}</td>
+          <td>{{ r.notes|default:"—"|truncatechars:70 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10" class="empty">This member has not submitted any daily reports yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-heading"><div><p class="eyebrow">TARGETING</p><h2>Saved strategies</h2></div></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Country / City</th><th>Niche</th><th>Method</th><th>Notes</th><th>Created</th></tr></thead>
+      <tbody>
+      {% for s in strategies %}
+        <tr>
+          <td>{{ s.country.name }}<small>{{ s.city.name }}</small></td>
+          <td>{{ s.niche.full_path }}</td>
+          <td>{{ s.method.name }}</td>
+          <td>{{ s.notes|default:"—"|truncatechars:100 }}</td>
+          <td>{{ s.created_at|date:"Y-m-d" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="empty">No strategies saved yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

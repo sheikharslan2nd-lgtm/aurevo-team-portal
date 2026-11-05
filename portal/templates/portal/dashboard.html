@@ -2,8 +2,11 @@
 {% block title %}Team Dashboard · Aurevo System{% endblock %}
 {% block content %}
 <section class="hero-row">
-  <div><p class="eyebrow">MEMBER WORKSPACE</p><h1>Welcome, {{ user.first_name|default:user.username }}.</h1><p class="muted">Your outreach strategy, daily performance and follow-ups.</p></div>
-  <div class="status-pill active">● Account active</div>
+  <div><p class="eyebrow">{% if is_leader %}TEAM LEADER WORKSPACE{% else %}MEMBER WORKSPACE{% endif %}</p><h1>Welcome, {{ user.first_name|default:user.username }}.</h1><p class="muted">Your outreach strategy, daily performance and follow-ups.</p></div>
+  <div class="hero-actions compact-actions">
+    {% if is_leader %}<a class="btn primary" href="{% url 'leader_dashboard' %}">Open team portal →</a>{% endif %}
+    <span class="status-pill active">● Account active</span>
+  </div>
 </section>
 
 <section class="panel workflow-note">
@@ -124,7 +127,8 @@
 <div class="stats-grid">
   <div class="stat-card"><span>Saved strategies</span><strong>{{ strategies|length }}</strong></div>
   <div class="stat-card"><span>Reports shown</span><strong>{{ reports|length }}</strong></div>
-  <div class="stat-card"><span>Role</span><strong class="stat-word">Team member</strong></div>
+  {% if is_leader %}<div class="stat-card"><span>My team members</span><strong>{{ team_size }}</strong></div>{% endif %}
+  <div class="stat-card"><span>Role</span><strong class="stat-word">{% if is_leader %}Team leader{% else %}Team member{% endif %}</strong></div>
 </div>
 <div class="content-grid">
   <section class="panel"><div class="panel-heading"><div><p class="eyebrow">TARGETING</p><h2>Save a strategy</h2></div></div>

@@ -5,27 +5,34 @@ from .models import MemberProfile, TeamMember, Country, City, Niche, OutreachMet
 
 class ProfileInline(admin.StackedInline):
     model = MemberProfile
+    fk_name = "user"
     can_delete = False
     extra = 0
 
 class UserAdmin(BaseUserAdmin):
     inlines = [ProfileInline]
-    list_display = ("username", "email", "first_name", "last_name", "is_staff", "profile_status")
-    list_filter = ("is_staff", "is_active", "profile__status")
+    list_display = ("username", "email", "first_name", "last_name", "is_staff", "profile_role", "profile_status")
+    list_filter = ("is_staff", "is_active", "profile__role", "profile__status")
 
     @admin.display(description="Portal status")
     def profile_status(self, obj):
         return getattr(getattr(obj, "profile", None), "status", "Admin / no profile")
+
+    @admin.display(description="Portal role")
+    def profile_role(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.get_role_display() if profile else "Admin"
 
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
 @admin.register(MemberProfile)
 class MemberProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "status", "whatsapp", "created_at")
-    list_filter = ("status",)
-    search_fields = ("user__username", "user__email", "user__first_name", "whatsapp")
+    list_display = ("user", "role", "referred_by", "status", "whatsapp", "created_at")
+    list_filter = ("role", "status")
+    search_fields = ("user__username", "user__email", "user__first_name", "whatsapp", "referred_by__username")
     list_editable = ("status",)
+    autocomplete_fields = ("referred_by",)
 
 @admin.register(TeamMember)
 class TeamMemberAdmin(admin.ModelAdmin):

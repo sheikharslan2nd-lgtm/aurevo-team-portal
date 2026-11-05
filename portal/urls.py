@@ -19,4 +19,7 @@ urlpatterns = [
     path("admin-panel/", views.admin_panel, name="admin_panel"),
     path("admin-panel/member/<int:user_id>/status/", views.update_member_status, name="update_member_status"),
     path("admin-panel/member/<int:user_id>/delete/", views.delete_member, name="delete_member"),
+    path("admin-panel/leaders/new/", views.create_team_leader, name="create_team_leader"),
+    path("team/", views.leader_dashboard, name="leader_dashboard"),
+    path("team/member/<int:user_id>/", views.leader_member_detail, name="leader_member_detail"),
 ]

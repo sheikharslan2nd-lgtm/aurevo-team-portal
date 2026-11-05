@@ -1,22 +1,43 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count
+from django.db.models import Count, Max, Sum
 from django.http import JsonResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
-from .forms import RegisterForm, StrategyForm, DailyReportForm
+from .forms import RegisterForm, StrategyForm, DailyReportForm, TeamLeaderCreateForm
 from .models import MemberProfile, TeamMember, Strategy, DailyReport, Country, City, Niche, OutreachMethod
 
 
 def _is_admin(user):
     return user.is_authenticated and user.is_staff
+
+
+def _is_leader(user):
+    profile = getattr(user, "profile", None)
+    return bool(profile and profile.is_leader and profile.status == "active")
+
+
+PERFORMANCE_FIELDS = {
+    "emails": "emails_sent",
+    "messages": "messages_sent",
+    "calls": "calls_made",
+    "replies": "replies_received",
+    "interested": "interested_leads",
+    "meetings": "meetings_booked",
+    "deals": "deals_closed",
+    "followups": "followups",
+}
+
+
+def _performance_totals(queryset):
+    return queryset.aggregate(**{key: Sum(field) for key, field in PERFORMANCE_FIELDS.items()})
 
 
 def _ensure_profile(user):
@@ -51,8 +72,14 @@ def register(request):
                 skills=data.get("skills", ""),
                 experience=data.get("experience", ""),
                 status="pending",
+                role="member",
+                referred_by=data.get("referred_by"),
             )
-        messages.success(request, "Account created. Your account is pending admin approval.")
+        leader = data.get("referred_by")
+        message = "Account created. Your account is pending admin approval."
+        if leader:
+            message += f" Team leader reference: {leader.get_full_name() or leader.username}."
+        messages.success(request, message)
         return redirect("login")
     return render(request, "portal/register.html", {"form": form})
 
@@ -78,6 +105,8 @@ def login_view(request):
             else:
                 login(request, user)
                 request.session.set_expiry(60 * 60 * 24 * 30 if remember else 0)
+                if user.profile.is_leader:
+                    return redirect("leader_dashboard")
                 return redirect("dashboard")
         else:
             error = "Invalid username or password."
@@ -115,6 +144,8 @@ def dashboard(request):
     strategy_form = StrategyForm()
     context = {
         "profile": profile,
+        "is_leader": profile.is_leader,
+        "team_size": profile.team_size,
         "strategy_form": strategy_form,
         "report_form": report_form,
         "strategies": Strategy.objects.filter(member=request.user).select_related(
@@ -252,15 +283,28 @@ def niche_info(request, niche_id):
 @login_required
 @user_passes_test(_is_admin)
 def admin_panel(request):
-    profiles = MemberProfile.objects.select_related("user").order_by("status", "user__username")
+    profiles = (
+        MemberProfile.objects.filter(role="member")
+        .select_related("user", "referred_by")
+        .order_by("status", "user__username")
+    )
+    leaders = (
+        User.objects.filter(profile__role="leader")
+        .select_related("profile")
+        .annotate(team_count=Count("team_members", distinct=True))
+        .order_by("first_name", "last_name", "username")
+    )
     reports = DailyReport.objects.select_related("member").all()[:100]
     strategies = Strategy.objects.select_related("member", "country", "city", "niche", "method").all()[:100]
     context = {
         "profiles": profiles,
+        "leaders": leaders,
+        "leader_options": leaders.filter(profile__status="active"),
         "reports": reports,
         "strategies": strategies,
-        "pending_count": MemberProfile.objects.filter(status="pending").count(),
-        "active_count": MemberProfile.objects.filter(status="active").count(),
+        "pending_count": MemberProfile.objects.filter(status="pending", role="member").count(),
+        "active_count": MemberProfile.objects.filter(status="active", role="member").count(),
+        "leader_count": leaders.count(),
         "report_count": DailyReport.objects.count(),
         "countries_count": Country.objects.count(),
         "cities_count": City.objects.count(),
@@ -268,6 +312,38 @@ def admin_panel(request):
         "methods_count": OutreachMethod.objects.count(),
     }
     return render(request, "portal/admin_panel.html", context)
+
+
+@login_required
+@user_passes_test(_is_admin)
+def create_team_leader(request):
+    form = TeamLeaderCreateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=data["username"],
+                email=data["email"],
+                password=data["password1"],
+                first_name=data["first_name"],
+                last_name=data.get("last_name", ""),
+                is_active=True,
+            )
+            MemberProfile.objects.create(
+                user=user,
+                whatsapp=data["whatsapp"],
+                qualification=data.get("qualification", ""),
+                skills=data.get("skills", ""),
+                experience=data.get("experience", ""),
+                status="active",
+                role="leader",
+            )
+        messages.success(
+            request,
+            f"Team leader {user.get_full_name() or user.username} created. Share the login details with them.",
+        )
+        return redirect("admin_panel")
+    return render(request, "portal/admin_create_leader.html", {"form": form})
 
 
 @login_required
@@ -282,11 +358,100 @@ def update_member_status(request, user_id):
     status = request.POST.get("status")
     if status not in {"pending", "active", "suspended"}:
         messages.error(request, "Invalid status.")
-    else:
-        profile.status = status
-        profile.save(update_fields=["status"])
-        messages.success(request, f"{user.username} status updated to {status}.")
+        return redirect("admin_panel")
+
+    if profile.role == "member":
+        leader_id = (request.POST.get("referred_by") or "").strip()
+        if leader_id:
+            leader = User.objects.filter(
+                pk=leader_id, profile__role="leader", profile__status="active"
+            ).first()
+            if leader is None:
+                messages.error(request, "Selected team leader is not active.")
+                return redirect("admin_panel")
+            profile.referred_by = leader
+        else:
+            profile.referred_by = None
+
+    profile.status = status
+    profile.save(update_fields=["status", "referred_by"])
+    messages.success(request, f"{user.username} updated successfully.")
     return redirect("admin_panel")
+
+
+@login_required
+def leader_dashboard(request):
+    if request.user.is_staff:
+        return redirect("admin_panel")
+    profile = getattr(request.user, "profile", None)
+    if not profile or not profile.is_leader:
+        messages.error(request, "Only team leaders can open the team portal.")
+        return redirect("dashboard")
+    if profile.status != "active":
+        messages.error(request, "Your team leader account is not active.")
+        return redirect("login")
+
+    members = (
+        User.objects.filter(profile__referred_by=request.user)
+        .select_related("profile")
+        .annotate(
+            report_count=Count("daily_reports", distinct=True),
+            last_report=Max("daily_reports__report_date"),
+            total_emails=Sum("daily_reports__emails_sent"),
+            total_messages=Sum("daily_reports__messages_sent"),
+            total_calls=Sum("daily_reports__calls_made"),
+            total_replies=Sum("daily_reports__replies_received"),
+            total_interested=Sum("daily_reports__interested_leads"),
+            total_meetings=Sum("daily_reports__meetings_booked"),
+            total_deals=Sum("daily_reports__deals_closed"),
+            total_followups=Sum("daily_reports__followups"),
+        )
+        .order_by("profile__status", "first_name", "last_name", "username")
+    )
+    team_reports = DailyReport.objects.filter(member__profile__referred_by=request.user)
+    totals = _performance_totals(team_reports)
+    week_start = timezone.localdate() - timedelta(days=6)
+    week_reports = team_reports.filter(report_date__gte=week_start)
+    context = {
+        "profile": profile,
+        "members": members,
+        "team_size": members.count(),
+        "active_members": members.filter(profile__status="active").count(),
+        "pending_members": members.filter(profile__status="pending").count(),
+        "week_reports": week_reports.count(),
+        "recent_reports": team_reports.select_related("member")[:15],
+        "totals": totals,
+        "week_totals": _performance_totals(week_reports),
+    }
+    return render(request, "portal/leader_dashboard.html", context)
+
+
+@login_required
+def leader_member_detail(request, user_id):
+    member = get_object_or_404(User.objects.select_related("profile"), pk=user_id)
+    profile = getattr(member, "profile", None)
+
+    if not request.user.is_staff:
+        requester = getattr(request.user, "profile", None)
+        if not requester or not requester.is_leader or requester.status != "active":
+            return HttpResponseForbidden("Only active team leaders can view member performance.")
+        if not profile or profile.referred_by_id != request.user.id:
+            return HttpResponseForbidden("This member is not part of your team.")
+
+    reports = member.daily_reports.all()
+    week_start = timezone.localdate() - timedelta(days=6)
+    context = {
+        "member": member,
+        "profile": profile,
+        "reports": reports[:30],
+        "report_count": reports.count(),
+        "strategies": member.strategies.select_related("country", "city", "niche__parent__parent", "method"),
+        "totals": _performance_totals(reports),
+        "week_totals": _performance_totals(reports.filter(report_date__gte=week_start)),
+        "last_report": reports.first(),
+        "back_url": "admin_panel" if request.user.is_staff else "leader_dashboard",
+    }
+    return render(request, "portal/leader_member_detail.html", context)
 
 
 @login_required

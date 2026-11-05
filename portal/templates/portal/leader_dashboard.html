@@ -1,0 +1,111 @@
+{% extends "portal/base.html" %}
+{% block title %}Team Leader Portal · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div>
+    <p class="eyebrow">TEAM LEADER PORTAL</p>
+    <h1>Your team, {{ user.first_name|default:user.username }}.</h1>
+    <p class="muted">Track every member who joined through your reference — their activity, reports and results.</p>
+  </div>
+  <div class="hero-actions compact-actions">
+    <span class="role-pill leader">Team leader</span>
+    <a class="btn secondary" href="{% url 'dashboard' %}">My own dashboard →</a>
+  </div>
+</section>
+
+<div class="stats-grid">
+  <div class="stat-card"><span>Team members</span><strong>{{ team_size }}</strong></div>
+  <div class="stat-card"><span>Active / Pending</span><strong class="stat-word">{{ active_members }} / {{ pending_members }}</strong></div>
+  <div class="stat-card"><span>Reports this week</span><strong>{{ week_reports }}</strong></div>
+  <div class="stat-card"><span>Emails this week</span><strong>{{ week_totals.emails|default:0 }}</strong></div>
+  <div class="stat-card"><span>Meetings booked</span><strong>{{ totals.meetings|default:0 }}</strong></div>
+  <div class="stat-card"><span>Deals closed</span><strong>{{ totals.deals|default:0 }}</strong></div>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">MY TEAM</p><h2>Members referred by you</h2></div>
+    <span class="muted">{{ team_size }} member{{ team_size|pluralize }} · {{ active_members }} active</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Member</th><th>Status</th><th>Joined</th><th>Reports</th><th>Last report</th><th>Emails</th><th>Replies</th><th>Interested</th><th>Meetings</th><th>Deals</th><th></th></tr></thead>
+      <tbody>
+      {% for m in members %}
+        <tr>
+          <td><a class="member-link" href="{% url 'leader_member_detail' m.id %}">{{ m.get_full_name|default:m.username }}</a><small>@{{ m.username }}{% if m.profile.whatsapp %} · {{ m.profile.whatsapp }}{% endif %}</small></td>
+          <td><span class="status-pill {{ m.profile.status }}">{{ m.profile.get_status_display }}</span></td>
+          <td>{{ m.profile.created_at|date:"Y-m-d" }}</td>
+          <td>{{ m.report_count }}</td>
+          <td>{{ m.last_report|default:"—" }}</td>
+          <td>{{ m.total_emails|default:0 }}</td>
+          <td>{{ m.total_replies|default:0 }}</td>
+          <td>{{ m.total_interested|default:0 }}</td>
+          <td>{{ m.total_meetings|default:0 }}</td>
+          <td>{{ m.total_deals|default:0 }}</td>
+          <td><a class="btn secondary small-btn" href="{% url 'leader_member_detail' m.id %}">View</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="empty">No members have joined through your reference yet. Share your name with new candidates so they can select you at registration.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="content-grid">
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">ALL-TIME OUTPUT</p><h2>Team performance</h2></div></div>
+    <div class="mini-stats">
+      <div><span>Emails</span><strong>{{ totals.emails|default:0 }}</strong></div>
+      <div><span>Messages</span><strong>{{ totals.messages|default:0 }}</strong></div>
+      <div><span>Calls</span><strong>{{ totals.calls|default:0 }}</strong></div>
+      <div><span>Replies</span><strong>{{ totals.replies|default:0 }}</strong></div>
+      <div><span>Interested leads</span><strong>{{ totals.interested|default:0 }}</strong></div>
+      <div><span>Meetings</span><strong>{{ totals.meetings|default:0 }}</strong></div>
+      <div><span>Deals</span><strong>{{ totals.deals|default:0 }}</strong></div>
+      <div><span>Follow-ups</span><strong>{{ totals.followups|default:0 }}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">LAST 7 DAYS</p><h2>This week's activity</h2></div></div>
+    <div class="mini-stats">
+      <div><span>Emails</span><strong>{{ week_totals.emails|default:0 }}</strong></div>
+      <div><span>Messages</span><strong>{{ week_totals.messages|default:0 }}</strong></div>
+      <div><span>Calls</span><strong>{{ week_totals.calls|default:0 }}</strong></div>
+      <div><span>Replies</span><strong>{{ week_totals.replies|default:0 }}</strong></div>
+      <div><span>Interested leads</span><strong>{{ week_totals.interested|default:0 }}</strong></div>
+      <div><span>Meetings</span><strong>{{ week_totals.meetings|default:0 }}</strong></div>
+      <div><span>Deals</span><strong>{{ week_totals.deals|default:0 }}</strong></div>
+      <div><span>Follow-ups</span><strong>{{ week_totals.followups|default:0 }}</strong></div>
+    </div>
+  </section>
+</div>
+
+<section class="panel table-panel">
+  <div class="panel-heading"><div><p class="eyebrow">LIVE FEED</p><h2>Recent team reports</h2></div></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Member</th><th>Date</th><th>Emails</th><th>Messages</th><th>Calls</th><th>Replies</th><th>Interested</th><th>Meetings</th><th>Deals</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for r in recent_reports %}
+        <tr>
+          <td>{{ r.member.get_full_name|default:r.member.username }}</td>
+          <td>{{ r.report_date }}</td>
+          <td>{{ r.emails_sent }}</td>
+          <td>{{ r.messages_sent }}</td>
+          <td>{{ r.calls_made }}</td>
+          <td>{{ r.replies_received }}</td>
+          <td>{{ r.interested_leads }}</td>
+          <td>{{ r.meetings_booked }}</td>
+          <td>{{ r.deals_closed }}</td>
+          <td>{{ r.notes|default:"—"|truncatechars:60 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="10" class="empty">No reports submitted by your team yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "portal/base.html" %}
+{% block title %}Create Team Leader · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div><p class="eyebrow">ADMINISTRATION</p><h1>Create a team leader.</h1><p class="muted">Team leaders get their own portal to track the members who join through their reference.</p></div>
+  <div class="hero-actions compact-actions">
+    <a class="btn secondary" href="{% url 'admin_panel' %}">← Back to admin panel</a>
+  </div>
+</section>
+<div class="content-grid">
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">TEAM LEADER ACCOUNT</p><h2>Account details</h2></div></div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.name != "skills" %}<label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>{% endif %}
+        {% endfor %}
+      </div>
+      <label>{{ form.skills.label }}{{ form.skills }}{% for error in form.skills.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+      {% for error in form.non_field_errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      <button class="btn primary full" type="submit">Create team leader</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="panel-heading"><div><p class="eyebrow">HOW IT WORKS</p><h2>What happens next</h2></div></div>
+    <div class="hint-box">
+      <strong>1. Account is active immediately</strong>
+      <p>The team leader can log in right away and will land on the team leader portal.</p>
+    </div>
+    <div class="hint-box">
+      <strong>2. Members select their reference</strong>
+      <p>New members choose this team leader from the “Team leader reference” field during registration.</p>
+    </div>
+    <div class="hint-box">
+      <strong>3. Leader sees performance</strong>
+      <p>Every member referred by this leader appears in their portal with daily reports, targets and totals.</p>
+    </div>
+    <p class="muted small">Share the username and password with the team leader securely. Admins can reassign a member to another team leader at any time.</p>
+  </section>
+</div>
+{% endblock %}

@@ -14,7 +14,12 @@
       {% if user.is_authenticated %}
         <a href="{% url 'home' %}">Home</a>
         <a href="{% url 'our_team' %}">Our Team</a>
-        {% if user.is_staff %}<a href="{% url 'admin_panel' %}">Admin Panel</a>{% else %}<a href="{% url 'dashboard' %}">Dashboard</a>{% endif %}
+        {% if user.is_staff %}
+          <a href="{% url 'admin_panel' %}">Admin Panel</a>
+        {% else %}
+          {% if user.profile.is_leader %}<a href="{% url 'leader_dashboard' %}">My Team</a>{% endif %}
+          <a href="{% url 'dashboard' %}">Dashboard</a>
+        {% endif %}
         <form method="post" action="{% url 'logout' %}" class="inline">{% csrf_token %}<button class="link-button" type="submit">Logout</button></form>
       {% else %}
         <a href="{% url 'home' %}">Home</a>
