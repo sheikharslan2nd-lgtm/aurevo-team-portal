@@ -10,10 +10,19 @@ DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 allowed_hosts = os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost")
 ALLOWED_HOSTS = [h.strip() for h in allowed_hosts.split(",") if h.strip()]
 ALLOWED_HOSTS += ["testserver", "127.0.0.1", "localhost"]
+# Production domains must always be allowed, even when the Vercel
+# ALLOWED_HOSTS environment variable does not include them.
+for host in ("aurevoteam.vercel.app", "team.aurevosystem.site"):
+    if host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 
 CSRF_TRUSTED_ORIGINS = [
     x.strip() for x in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if x.strip()
 ]
+# Trust both production HTTPS origins for CSRF-protected POST requests.
+for origin in ("https://aurevoteam.vercel.app", "https://team.aurevosystem.site"):
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Shared SEO tool access (shown to every team member on the dashboard).
 PAKSEO_TOOL_URL = os.environ.get("PAKSEO_TOOL_URL", "https://app.pakseotools.com/member")
