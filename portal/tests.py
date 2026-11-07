@@ -57,6 +57,35 @@ class HealthAndHostChecks(TestCase):
         self.assertIn({'id': child.id, 'name': 'Marketing Agency'}, niche_response.json()['children'])
 
 
+class RegistrationReferenceTests(TestCase):
+    def setUp(self):
+        self.leader = User.objects.create_user(username="referenceleader", password="TestPass123!")
+        MemberProfile.objects.create(user=self.leader, role="leader", status="active")
+        self.form_data = {
+            "username": "newmember",
+            "email": "newmember@example.com",
+            "password1": "StrongPass123!",
+            "password2": "StrongPass123!",
+            "first_name": "New",
+            "last_name": "Member",
+            "whatsapp": "03001234567",
+        }
+
+    def test_registration_allows_no_reference_when_leaders_exist(self):
+        response = self.client.post("/register/", {**self.form_data, "referred_by": ""})
+        self.assertEqual(response.status_code, 302)
+        profile = MemberProfile.objects.get(user__username="newmember")
+        self.assertIsNone(profile.referred_by)
+
+    def test_registration_accepts_a_selected_reference(self):
+        response = self.client.post(
+            "/register/", {**self.form_data, "referred_by": self.leader.id}
+        )
+        self.assertEqual(response.status_code, 302)
+        profile = MemberProfile.objects.get(user__username="newmember")
+        self.assertEqual(profile.referred_by, self.leader)
+
+
 class NicheHierarchyTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="hierarchymember", password="TestPass123!")

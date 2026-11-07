@@ -16,23 +16,22 @@ class RegisterForm(forms.Form):
     qualification = forms.CharField(max_length=160, required=False)
     skills = forms.CharField(widget=forms.Textarea, required=False)
     experience = forms.CharField(max_length=160, required=False)
-    referred_by = forms.ModelChoiceField(
-        queryset=User.objects.none(),
-        required=False,
-        label="Team leader reference",
-        empty_label="Select the team leader who referred you",
-        help_text="Choose the team leader you are joining under.",
-    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         leaders = User.objects.filter(profile__role="leader", profile__status="active").order_by(
             "first_name", "last_name", "username"
         )
-        self.fields["referred_by"].queryset = leaders
-        if leaders.exists():
-            self.fields["referred_by"].required = True
-            self.fields["referred_by"].empty_label = "Select your team leader"
+        self.fields["referred_by"] = forms.ModelChoiceField(
+            queryset=leaders,
+            required=False,
+            label="Team leader reference",
+            empty_label="No reference - I was not referred by anyone",
+            help_text=(
+                "If you did not come through any team member's reference, "
+                'choose "No reference - I was not referred by anyone".'
+            ),
+        )
 
     def clean_username(self):
         username = self.cleaned_data["username"].strip()
