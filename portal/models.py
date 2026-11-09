@@ -173,3 +173,161 @@ class DailyReport(models.Model):
 
     def __str__(self):
         return f"{self.member.username} — {self.report_date}"
+
+
+import uuid
+
+from .crypto import decrypt_value, encrypt_value
+
+
+class ToolIntegrationConfig(models.Model):
+    """Singleton holding the (encrypted) PakSEOtools credentials."""
+
+    name = models.CharField(max_length=80, default="PakSEOtools")
+    login_url = models.URLField(default="https://app.pakseotools.com/login", blank=True)
+    member_url = models.URLField(default="https://app.pakseotools.com/member", blank=True)
+    username_encrypted = models.TextField(blank=True, default="")
+    password_encrypted = models.TextField(blank=True, default="")
+    is_enabled = models.BooleanField(default=False)
+    automation_acknowledged = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "Tool integration config"
+
+    def __str__(self):
+        return f"{self.name} integration"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={"name": "PakSEOtools"})
+        return obj
+
+    def set_credentials(self, username, password):
+        self.username_encrypted = encrypt_value(username or "")
+        self.password_encrypted = encrypt_value(password or "")
+
+    def get_credentials(self):
+        return decrypt_value(self.username_encrypted), decrypt_value(self.password_encrypted)
+
+    @property
+    def has_credentials(self):
+        username, password = self.get_credentials()
+        return bool(username and password)
+
+    @property
+    def masked_username(self):
+        username, _ = self.get_credentials()
+        if not username:
+            return "Not configured"
+        if len(username) <= 4:
+            return "*" * len(username)
+        return username[:2] + "*" * (len(username) - 4) + username[-2:]
+
+    @property
+    def integration_ready(self):
+        return bool(self.is_enabled and self.has_credentials and self.automation_acknowledged)
+
+
+class ToolAccessPermission(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tool_access_permission")
+    enabled = models.BooleanField(default=False)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="granted_tool_access"
+    )
+    granted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}: {'enabled' if self.enabled else 'disabled'}"
+
+    def enable(self, granted_by=None):
+        from django.utils import timezone
+
+        self.enabled = True
+        self.granted_by = granted_by
+        self.granted_at = timezone.now()
+        self.revoked_at = None
+        self.save()
+
+    def disable(self, revoked_by=None):
+        from django.utils import timezone
+
+        self.enabled = False
+        self.revoked_at = timezone.now()
+        self.save()
+
+
+class ToolAccessSession(models.Model):
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("ended", "Ended"),
+        ("revoked", "Revoked"),
+        ("expired", "Expired"),
+        ("failed", "Failed"),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tool_access_sessions")
+    permission = models.ForeignKey(ToolAccessPermission, on_delete=models.SET_NULL, null=True, blank=True)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="active")
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    backend_user_agent = models.TextField(blank=True)
+    cookies_encrypted = models.TextField(blank=True, default="")
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.user.username} session {self.token} ({self.status})"
+
+    def mark_ended(self, status="ended"):
+        from django.utils import timezone
+
+        self.status = status
+        self.ended_at = timezone.now()
+        self.cookies_encrypted = ""
+        self.save(update_fields=["status", "ended_at", "cookies_encrypted"])
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+
+        return bool(self.expires_at and self.expires_at < timezone.now())
+
+
+class ToolAccessLog(models.Model):
+    ACTION_CHOICES = [
+        ("credential_update", "Credential update"),
+        ("access_enabled", "Access enabled"),
+        ("access_disabled", "Access disabled"),
+        ("session_started", "Session started"),
+        ("session_failed", "Session failed"),
+        ("session_ended", "Session ended"),
+        ("session_revoked", "Session revoked"),
+        ("access_denied", "Access denied"),
+        ("integration_toggled", "Integration toggled"),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="tool_access_logs")
+    session = models.ForeignKey(ToolAccessSession, on_delete=models.SET_NULL, null=True, blank=True, related_name="logs")
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    status = models.CharField(max_length=16, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    details = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} {self.user} @ {self.created_at}"

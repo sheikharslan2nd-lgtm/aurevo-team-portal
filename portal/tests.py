@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from portal.models import City, Country, MemberProfile, Niche, OutreachMethod, Strategy
+from portal.models import City, Country, MemberProfile, Niche, OutreachMethod, Strategy, ToolIntegrationConfig, ToolAccessPermission, ToolAccessSession
 
 
 class HealthAndHostChecks(TestCase):
@@ -205,3 +205,23 @@ class CountrySeedHelperTests(TestCase):
         second = _get_or_create_country("atlantis")
         self.assertEqual(first.id, second.id)
         self.assertEqual(Country.objects.filter(name__iexact="Atlantis").count(), 1)
+
+
+class ToolAccessControlTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="admin2", password="AdminPass123!", is_staff=True, is_superuser=True)
+        self.member = User.objects.create_user(username="toolmember", password="MemberPass123!")
+        MemberProfile.objects.create(user=self.member, status="active")
+        self.permission, _ = ToolAccessPermission.objects.get_or_create(user=self.member)
+        self.config = ToolIntegrationConfig.get_solo()
+
+    def test_disabled_member_cannot_access_tool(self):
+        self.client.login(username="toolmember", password="MemberPass123!")
+        response = self.client.post("/tools/pakseotools/access/")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.endswith("/dashboard/"))
+
+    def test_proxy_requires_active_session(self):
+        self.client.login(username="toolmember", password="MemberPass123!")
+        response = self.client.get("/tools/pakseotools/proxy/")
+        self.assertEqual(response.status_code, 403)

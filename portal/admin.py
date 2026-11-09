@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import MemberProfile, TeamMember, Country, City, Niche, OutreachMethod, Strategy, DailyReport
+from .models import MemberProfile, TeamMember, Country, City, Niche, OutreachMethod, Strategy, DailyReport, ToolIntegrationConfig, ToolAccessPermission, ToolAccessSession, ToolAccessLog
 
 class ProfileInline(admin.StackedInline):
     model = MemberProfile
@@ -79,3 +79,35 @@ class DailyReportAdmin(admin.ModelAdmin):
     list_filter = ("report_date",)
     search_fields = ("member__username", "member__email")
     date_hierarchy = "report_date"
+
+
+@admin.register(ToolIntegrationConfig)
+class ToolIntegrationConfigAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_enabled", "automation_acknowledged", "has_credentials", "updated_at")
+    readonly_fields = ("username_encrypted", "password_encrypted", "updated_at")
+
+    @admin.display(boolean=True, description="Credentials configured")
+    def has_credentials(self, obj):
+        return obj.has_credentials
+
+
+@admin.register(ToolAccessPermission)
+class ToolAccessPermissionAdmin(admin.ModelAdmin):
+    list_display = ("user", "enabled", "granted_by", "granted_at", "revoked_at")
+    list_filter = ("enabled",)
+    search_fields = ("user__username",)
+
+
+@admin.register(ToolAccessSession)
+class ToolAccessSessionAdmin(admin.ModelAdmin):
+    list_display = ("user", "status", "started_at", "ended_at", "ip_address")
+    list_filter = ("status",)
+    search_fields = ("user__username",)
+    readonly_fields = ("token", "cookies_encrypted")
+
+
+@admin.register(ToolAccessLog)
+class ToolAccessLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "status", "ip_address")
+    list_filter = ("action", "status")
+    search_fields = ("user__username", "details")

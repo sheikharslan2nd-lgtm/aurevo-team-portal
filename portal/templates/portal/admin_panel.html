@@ -54,16 +54,16 @@
 <section class="panel tool-access-panel">
   <div class="panel-heading">
     <div>
-      <p class="eyebrow">SHARED TOOL ACCESS</p>
-      <h2>PakSEO Tools — team login</h2>
-      <p class="muted">Shared credentials for the team. Update via Vercel env vars (PAKSEO_TOOL_*) if they change.</p>
+      <p class="eyebrow">TOOL ACCESS MANAGEMENT</p>
+      <h2>PakSEOtools secure access</h2>
+      <p class="muted">Control who can use PakSEOtools. Credentials are stored encrypted and never exposed to team members.</p>
     </div>
-    <a class="btn primary" href="{{ pakseo_tool_url }}" target="_blank" rel="noopener">Open tool ↗</a>
+    <a class="btn primary" href="{% url 'admin_tool_access' %}">Manage tool access →</a>
   </div>
   <div class="tool-creds">
-    <div class="tool-cred"><span>URL</span><code>{{ pakseo_tool_url }}</code></div>
-    <div class="tool-cred"><span>Username</span><code>{{ pakseo_tool_username }}</code></div>
-    <div class="tool-cred"><span>Password</span><code>{{ pakseo_tool_password }}</code></div>
+    <div class="tool-cred"><span>Integration</span><code>{% if tool_integration_ready %}Ready{% else %}Not configured{% endif %}</code></div>
+    <div class="tool-cred"><span>Enabled members</span><code>{{ tool_enabled_count }}</code></div>
+    <div class="tool-cred"><span>Active sessions</span><code>{{ tool_active_sessions }}</code></div>
   </div>
 </section>
 <section class="panel resource-links-panel">

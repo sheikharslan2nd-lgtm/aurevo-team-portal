@@ -24,10 +24,8 @@ for origin in ("https://aurevoteam.vercel.app", "https://team.aurevosystem.site"
     if origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
-# Shared SEO tool access (shown to every team member on the dashboard).
-PAKSEO_TOOL_URL = os.environ.get("PAKSEO_TOOL_URL", "https://app.pakseotools.com/member")
-PAKSEO_TOOL_USERNAME = os.environ.get("PAKSEO_TOOL_USERNAME", "alisheikhali384@gmail.com")
-PAKSEO_TOOL_PASSWORD = os.environ.get("PAKSEO_TOOL_PASSWORD", "123456$")
+# PakSEOtools credentials are managed securely in the database (encrypted) via
+# the Tool Access Management admin section. No credentials are stored here.
 
 INSTALLED_APPS = [
     "django.contrib.admin",

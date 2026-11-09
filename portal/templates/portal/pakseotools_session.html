@@ -1,0 +1,28 @@
+{% extends "portal/base.html" %}
+{% block title %}PakSEOtools Session · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div>
+    <p class="eyebrow">SECURE TOOL SESSION</p>
+    <h1>PakSEOtools access.</h1>
+    <p class="muted">Your access is proxied through the Aurevo portal. Credentials, cookies and tokens are never exposed to your browser.</p>
+  </div>
+  <div class="hero-actions compact-actions">
+    <a class="btn secondary" href="{% url 'dashboard' %}">Back to dashboard</a>
+    <form method="post" action="{% url 'end_pakseotools_session' session.token %}" class="inline">
+      {% csrf_token %}
+      <button class="btn danger" type="submit">End session</button>
+    </form>
+  </div>
+</section>
+
+<div class="hint-box">
+  <strong>Session active</strong>
+  <p>Started {{ session.started_at|date:"Y-m-d H:i" }}. This session expires after 30 minutes of inactivity and ends immediately if an admin revokes your access.</p>
+  <small>Session ID: {{ session.token }}</small>
+</div>
+
+<section class="panel" style="padding:0;overflow:hidden;">
+  <iframe src="{% url 'pakseotools_proxy_root' %}" title="PakSEOtools" style="width:100%;height:75vh;border:0;display:block;"></iframe>
+</section>
+{% endblock %}

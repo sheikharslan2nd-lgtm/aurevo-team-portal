@@ -84,6 +84,22 @@ This project is configured for Render. Free plan terms and database-provider lim
 
 `seed_locations` and `ensure_admin` are idempotent, so later deploys do not duplicate data or reset the admin password. If you change `DJANGO_SUPERUSER_PASSWORD` later it will **not** overwrite the existing password — change it from Django Admin instead.
 
+### PakSEOtools secure access management
+
+The portal now includes a **Tool Access Management** section (admin panel → "Manage tool access") that controls PakSEOtools access without ever exposing credentials to team members:
+
+1. Open **Admin panel → Tool Access Management**.
+2. Enter the PakSEOtools login URL, member URL, username and password. Credentials are encrypted at rest with the Django `SECRET_KEY` and are never rendered to the frontend.
+3. Enable the integration and acknowledge the automation notice. PakSEOtools does not provide an official API, SSO or OAuth, so review its terms before enabling server-controlled sessions.
+4. For each team member, use **Enable access** / **Disable & revoke**. Disabling immediately terminates any active session.
+5. Members see a **PakSEOtools** card on their dashboard with an **Access Tool** button. Only approved members with enabled access can open a server-side isolated session.
+6. Admins can revoke any active session instantly from **Active sessions**. Every access, denial, session start/end and revocation is recorded in the audit log.
+
+Access-revocation test (manual):
+1. Enable PakSEOtools access for a test member and open a session.
+2. As admin, click **Disable & revoke** for that member.
+3. The member's session page/proxy immediately returns "access revoked" and the dashboard no longer offers the tool.
+
 ### Important deployment notes
 - Never share `DJANGO_SECRET_KEY` or `DATABASE_URL`.
 - `DEBUG=False` is configured for deployment.

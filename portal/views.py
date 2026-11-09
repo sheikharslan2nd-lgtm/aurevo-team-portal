@@ -7,12 +7,21 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Sum
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+import json
+import uuid
+from datetime import timedelta
+
 from .forms import RegisterForm, StrategyForm, DailyReportForm, TeamLeaderCreateForm
-from .models import MemberProfile, TeamMember, Strategy, DailyReport, Country, City, Niche, OutreachMethod
+from .models import (
+    MemberProfile, TeamMember, Strategy, DailyReport, Country, City, Niche, OutreachMethod,
+    ToolIntegrationConfig, ToolAccessPermission, ToolAccessSession, ToolAccessLog,
+)
+from .crypto import decrypt_value, encrypt_value
+from .pakseo import pakseo_login, serialize_cookies, deserialize_cookies
 
 
 def _is_admin(user):
@@ -43,6 +52,58 @@ def _performance_totals(queryset):
 def _ensure_profile(user):
     if user.is_authenticated and not user.is_staff:
         MemberProfile.objects.get_or_create(user=user)
+
+
+def _client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
+
+
+def _log_tool_action(user, action, status="", session=None, details="", request=None):
+    ToolAccessLog.objects.create(
+        user=user if getattr(user, "is_authenticated", False) else None,
+        session=session,
+        action=action,
+        status=status,
+        ip_address=_client_ip(request) if request is not None else None,
+        details=details,
+    )
+
+
+def _member_profile_ok(request):
+    if request.user.is_staff:
+        return True
+    _ensure_profile(request.user)
+    profile = request.user.profile
+    if profile.status != "active":
+        return False
+    return True
+
+
+def _tool_permission_for(user):
+    try:
+        return user.tool_access_permission
+    except ToolAccessPermission.DoesNotExist:
+        return None
+
+
+def _active_tool_session(user):
+    session = ToolAccessSession.objects.filter(user=user, status="active").order_by("-started_at").first()
+    if session is None:
+        return None
+    if session.is_expired:
+        session.mark_ended("expired")
+        _log_tool_action(user, "session_ended", status="expired", session=session)
+        return None
+    return session
+
+
+def _terminate_user_tool_sessions(user, status="revoked"):
+    for session in ToolAccessSession.objects.filter(user=user, status="active"):
+        session.mark_ended(status)
+        _log_tool_action(user, "session_revoked", status=status, session=session)
 
 
 @require_GET
@@ -142,6 +203,14 @@ def dashboard(request):
     report = DailyReport.objects.filter(member=request.user, report_date=today).first()
     report_form = DailyReportForm(instance=report, initial={"report_date": today})
     strategy_form = StrategyForm()
+    config = ToolIntegrationConfig.get_solo()
+    permission = _tool_permission_for(request.user)
+    tool_access_enabled = bool(config.integration_ready and permission and permission.enabled)
+    tool_access_message = ""
+    if not config.integration_ready:
+        tool_access_message = "Tool integration is not configured by the admin."
+    elif not permission or not permission.enabled:
+        tool_access_message = "Request access from an admin to use PakSEOtools."
     context = {
         "profile": profile,
         "is_leader": profile.is_leader,
@@ -159,6 +228,8 @@ def dashboard(request):
         "total_cities": City.objects.count(),
         "total_niches": Niche.objects.count(),
         "method_notes_json": json.dumps({m.id: m.approach_note for m in OutreachMethod.objects.all()}),
+        "tool_access_enabled": tool_access_enabled,
+        "tool_access_message": tool_access_message,
     }
     return render(request, "portal/dashboard.html", context)
 
@@ -296,6 +367,9 @@ def admin_panel(request):
     )
     reports = DailyReport.objects.select_related("member").all()[:100]
     strategies = Strategy.objects.select_related("member", "country", "city", "niche", "method").all()[:100]
+    config = ToolIntegrationConfig.get_solo()
+    tool_enabled_count = ToolAccessPermission.objects.filter(enabled=True).count()
+    tool_active_sessions = ToolAccessSession.objects.filter(status="active").count()
     context = {
         "profiles": profiles,
         "leaders": leaders,
@@ -310,6 +384,9 @@ def admin_panel(request):
         "cities_count": City.objects.count(),
         "niches_count": Niche.objects.count(),
         "methods_count": OutreachMethod.objects.count(),
+        "tool_integration_ready": config.integration_ready,
+        "tool_enabled_count": tool_enabled_count,
+        "tool_active_sessions": tool_active_sessions,
     }
     return render(request, "portal/admin_panel.html", context)
 
@@ -466,3 +543,309 @@ def delete_member(request, user_id):
     user.delete()
     messages.success(request, f"Team member '{username}' deleted.")
     return redirect("admin_panel")
+
+
+# ---------------------------------------------------------------------------
+# PakSEOtools secure access management
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@user_passes_test(_is_admin)
+def admin_tool_access(request):
+    config = ToolIntegrationConfig.get_solo()
+    permissions = (
+        ToolAccessPermission.objects.select_related("user", "granted_by")
+        .order_by("user__username")
+    )
+    # Ensure every non-staff member has a permission row for visibility.
+    for profile in MemberProfile.objects.select_related("user").filter(role="member"):
+        ToolAccessPermission.objects.get_or_create(user=profile.user)
+    permissions = (
+        ToolAccessPermission.objects.select_related("user", "granted_by")
+        .order_by("user__username")
+    )
+    sessions = ToolAccessSession.objects.select_related("user").all()[:50]
+    logs = ToolAccessLog.objects.select_related("user").all()[:50]
+    context = {
+        "config": config,
+        "permissions": permissions,
+        "sessions": sessions,
+        "logs": logs,
+        "active_session_count": ToolAccessSession.objects.filter(status="active").count(),
+    }
+    return render(request, "portal/admin_tool_access.html", context)
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def update_tool_credentials(request):
+    config = ToolIntegrationConfig.get_solo()
+    config.name = (request.POST.get("name") or "PakSEOtools").strip() or "PakSEOtools"
+    config.login_url = (request.POST.get("login_url") or config.login_url).strip()
+    config.member_url = (request.POST.get("member_url") or config.member_url).strip()
+    username = request.POST.get("username", "")
+    password = request.POST.get("password", "")
+    if username or password:
+        # Keep existing value when field left blank.
+        current_username, current_password = config.get_credentials()
+        config.set_credentials(
+            username if username.strip() != "" else current_username,
+            password if password.strip() != "" else current_password,
+        )
+    config.is_enabled = request.POST.get("is_enabled") == "on"
+    config.automation_acknowledged = request.POST.get("automation_acknowledged") == "on"
+    config.updated_by = request.user
+    config.save()
+    _log_tool_action(request.user, "credential_update", status="ok", request=request,
+                     details=f"integration_enabled={config.is_enabled}")
+    messages.success(request, "PakSEOtools integration settings saved.")
+    return redirect("admin_tool_access")
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def update_member_tool_access(request, user_id):
+    user = get_object_or_404(User, pk=user_id)
+    if user.is_staff:
+        messages.error(request, "Admin accounts are not managed here.")
+        return redirect("admin_tool_access")
+    permission, _ = ToolAccessPermission.objects.get_or_create(user=user)
+    enabled = request.POST.get("enabled") == "on"
+    if enabled:
+        permission.enable(granted_by=request.user)
+        _log_tool_action(request.user, "access_enabled", status="ok", request=request,
+                         details=f"member={user.username}")
+        messages.success(request, f"PakSEOtools access enabled for {user.username}.")
+    else:
+        permission.disable(revoked_by=request.user)
+        _terminate_user_tool_sessions(user, status="revoked")
+        _log_tool_action(request.user, "access_disabled", status="ok", request=request,
+                         details=f"member={user.username}")
+        messages.success(request, f"PakSEOtools access disabled for {user.username}. Active sessions revoked.")
+    return redirect("admin_tool_access")
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def revoke_tool_session(request, session_id):
+    session = get_object_or_404(ToolAccessSession, pk=session_id)
+    if session.status == "active":
+        session.mark_ended("revoked")
+        _log_tool_action(request.user, "session_revoked", status="ok", session=session, request=request,
+                         details=f"member={session.user.username}")
+    messages.success(request, f"Session for {session.user.username} revoked.")
+    return redirect("admin_tool_access")
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def toggle_tool_integration(request):
+    config = ToolIntegrationConfig.get_solo()
+    config.is_enabled = request.POST.get("is_enabled") == "on"
+    config.automation_acknowledged = request.POST.get("automation_acknowledged") == "on"
+    config.updated_by = request.user
+    config.save()
+    _log_tool_action(request.user, "integration_toggled", status="ok", request=request,
+                     details=f"enabled={config.is_enabled}")
+    messages.success(request, "Integration settings updated.")
+    return redirect("admin_tool_access")
+
+
+@login_required
+@require_POST
+def access_pakseotools(request):
+    if not _member_profile_ok(request):
+        messages.error(request, "Your account is not active.")
+        return redirect("login")
+    if request.user.is_staff:
+        messages.error(request, "Admins manage access from the admin panel.")
+        return redirect("admin_panel")
+
+    config = ToolIntegrationConfig.get_solo()
+    permission = _tool_permission_for(request.user)
+
+    def deny(reason, action="access_denied"):
+        _log_tool_action(request.user, action, status="denied", request=request, details=reason)
+        messages.error(request, reason)
+        return redirect("dashboard")
+
+    if not config.integration_ready:
+        return deny("PakSEOtools integration is not configured or enabled by the admin.")
+    if permission is None or not permission.enabled:
+        return deny("You are not authorized to access PakSEOtools.")
+
+    # Terminate any expired sessions first.
+    _active_tool_session(request.user)
+
+    username, password = config.get_credentials()
+    from django.utils import timezone
+
+    session = ToolAccessSession.objects.create(
+        user=request.user,
+        permission=permission,
+        ip_address=_client_ip(request),
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        expires_at=timezone.now() + timedelta(minutes=30),
+    )
+
+    result = pakseo_login(username, password, config.login_url)
+    if not result.get("ok"):
+        session.status = "failed"
+        session.error_message = result.get("error", "Unknown error")
+        session.mark_ended("failed")
+        _log_tool_action(request.user, "session_failed", status="failed", session=session, request=request,
+                         details=result.get("error", ""))
+        messages.error(request, "PakSEOtools is temporarily unavailable: " + result.get("error", "Unknown error"))
+        return redirect("dashboard")
+
+    session.cookies_encrypted = encrypt_value(serialize_cookies(result.get("cookies", [])))
+    session.backend_user_agent = result.get("user_agent", "")
+    session.status = "active"
+    session.save(update_fields=["cookies_encrypted", "backend_user_agent", "status", "last_seen_at"])
+    _log_tool_action(request.user, "session_started", status="ok", session=session, request=request)
+    return redirect("pakseotools_session", token=session.token)
+
+
+@login_required
+def pakseotools_session(request, token):
+    if not _member_profile_ok(request):
+        return redirect("login")
+    session = get_object_or_404(ToolAccessSession, token=token, user=request.user)
+    config = ToolIntegrationConfig.get_solo()
+    permission = _tool_permission_for(request.user)
+
+    # Immediate revocation checks on every view.
+    if not config.integration_ready or permission is None or not permission.enabled:
+        if session.status == "active":
+            session.mark_ended("revoked")
+            _log_tool_action(request.user, "session_revoked", status="revoked", session=session, request=request,
+                             details="access revoked")
+        messages.error(request, "Your PakSEOtools access has been revoked.")
+        return redirect("dashboard")
+    if session.status != "active" or session.is_expired:
+        if session.status == "active":
+            session.mark_ended("expired")
+        messages.warning(request, "Your PakSEOtools session has ended. Please request access again.")
+        return redirect("dashboard")
+
+    from django.utils import timezone
+
+    session.expires_at = timezone.now() + timedelta(minutes=30)
+    session.save(update_fields=["expires_at", "last_seen_at"])
+    return render(request, "portal/pakseotools_session.html", {
+        "session": session,
+        "config": config,
+    })
+
+
+@login_required
+@require_POST
+def end_pakseotools_session(request, token):
+    session = get_object_or_404(ToolAccessSession, token=token, user=request.user)
+    if session.status == "active":
+        session.mark_ended("ended")
+        _log_tool_action(request.user, "session_ended", status="ok", session=session, request=request)
+    messages.success(request, "PakSEOtools session ended.")
+    return redirect("dashboard")
+
+
+@login_required
+def pakseotools_proxy(request, path=""):
+    if not _member_profile_ok(request):
+        return HttpResponseForbidden("Authentication required.")
+    session = _active_tool_session(request.user)
+    if session is None:
+        return HttpResponseForbidden("No active PakSEOtools session.")
+    config = ToolIntegrationConfig.get_solo()
+    permission = _tool_permission_for(request.user)
+    if not config.integration_ready or permission is None or not permission.enabled:
+        _terminate_user_tool_sessions(request.user, status="revoked")
+        return HttpResponseForbidden("Access revoked.")
+
+    import requests as _requests
+
+    base = "https://app.pakseotools.com"
+    target_path = "/" + path.lstrip("/")
+    query = request.META.get("QUERY_STRING", "")
+    url = base + target_path
+    if query:
+        url = url + "?" + query
+
+    cookies = deserialize_cookies(decrypt_value(session.cookies_encrypted))
+    http_session = _requests.Session()
+    for cookie in cookies:
+        http_session.cookies.set(
+            cookie.get("name"), cookie.get("value"),
+            domain=cookie.get("domain"), path=cookie.get("path", "/"),
+        )
+
+    headers = {
+        "User-Agent": session.backend_user_agent or request.META.get("HTTP_USER_AGENT", ""),
+        "Accept": request.META.get("HTTP_ACCEPT", "*/*"),
+        "Accept-Language": request.META.get("HTTP_ACCEPT_LANGUAGE", "en-US,en;q=0.9"),
+    }
+    referer = request.META.get("HTTP_REFERER")
+    if referer:
+        headers["Referer"] = referer
+
+    body = request.body if request.method in ("POST", "PUT", "PATCH") else None
+    content_type = request.META.get("CONTENT_TYPE")
+    if content_type:
+        headers["Content-Type"] = content_type
+
+    try:
+        upstream = http_session.request(
+            request.method, url, headers=headers, data=body,
+            allow_redirects=False, timeout=30,
+        )
+    except Exception as exc:
+        _log_tool_action(request.user, "session_failed", status="failed", session=session, request=request,
+                         details=str(exc))
+        return HttpResponse("Upstream request failed.", status=502)
+
+    # Persist refreshed cookies.
+    refreshed = [
+        {"name": c.name, "value": c.value, "domain": c.domain, "path": c.path}
+        for c in http_session.cookies
+    ]
+    session.cookies_encrypted = encrypt_value(serialize_cookies(refreshed))
+    session.save(update_fields=["cookies_encrypted", "last_seen_at"])
+
+    def rewrite_url(value):
+        if not value:
+            return value
+        if value.startswith(base):
+            value = value[len(base):]
+        if value.startswith("/"):
+            return "/tools/pakseotools/proxy" + value
+        return value
+
+    if upstream.is_redirect:
+        location = rewrite_url(upstream.headers.get("Location", ""))
+        response = HttpResponse(status=upstream.status_code)
+        if location:
+            response["Location"] = location
+        return response
+
+    content = upstream.content
+    content_type = upstream.headers.get("Content-Type", "")
+    if "text/html" in content_type:
+        text = content.decode(upstream.encoding or "utf-8", errors="replace")
+        # Rewrite absolute and root-relative URLs so navigation stays proxied.
+        text = text.replace('href="/', 'href="/tools/pakseotools/proxy/')
+        text = text.replace('src="/', 'src="/tools/pakseotools/proxy/')
+        text = text.replace('action="/', 'action="/tools/pakseotools/proxy/')
+        text = text.replace(base + "/", "/tools/pakseotools/proxy/")
+        text = text.replace(base, "/tools/pakseotools/proxy")
+        content = text.encode("utf-8")
+
+    response = HttpResponse(content, status=upstream.status_code, content_type=content_type or "application/octet-stream")
+    for header in ("Content-Disposition", "Cache-Control"):
+        if header in upstream.headers:
+            response[header] = upstream.headers[header]
+    return response

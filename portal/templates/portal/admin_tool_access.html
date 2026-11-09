@@ -1,0 +1,155 @@
+{% extends "portal/base.html" %}
+{% block title %}Tool Access Management · Aurevo System{% endblock %}
+{% block content %}
+<section class="hero-row">
+  <div>
+    <p class="eyebrow">TOOL ACCESS MANAGEMENT</p>
+    <h1>PakSEOtools access control.</h1>
+    <p class="muted">Manage secure, server-side access to PakSEOtools. Credentials are stored encrypted and are never shown to team members.</p>
+  </div>
+  <div class="hero-actions compact-actions">
+    <a class="btn secondary" href="{% url 'admin_panel' %}">← Back to admin panel</a>
+  </div>
+</section>
+
+{% if not config.integration_ready %}
+<div class="hint-box">
+  <strong>Integration not ready</strong>
+  <p>PakSEOtools access is disabled. Configure encrypted credentials, enable the integration, and acknowledge the automation notice below before members can use it.</p>
+  {% if not config.automation_acknowledged %}
+  <small>Automation acknowledgement is required because PakSEOtools does not provide an official API, SSO or OAuth. Review its terms before enabling server-controlled sessions.</small>
+  {% endif %}
+</div>
+{% endif %}
+
+<section class="panel tool-access-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">INTEGRATION SETTINGS</p>
+      <h2>PakSEOtools credentials (encrypted)</h2>
+      <p class="muted">Credentials are encrypted at rest with the Django secret key. Leave username/password blank to keep the existing values.</p>
+    </div>
+  </div>
+  <form method="post" action="{% url 'update_tool_credentials' %}" class="form-grid" style="grid-template-columns:1fr;">
+    {% csrf_token %}
+    <label>Tool name<input type="text" name="name" value="{{ config.name }}"></label>
+    <label>Login URL<input type="url" name="login_url" value="{{ config.login_url }}" placeholder="https://app.pakseotools.com/login"></label>
+    <label>Member area URL<input type="url" name="member_url" value="{{ config.member_url }}" placeholder="https://app.pakseotools.com/member"></label>
+    <label>Username (stored encrypted)<input type="text" name="username" autocomplete="off" placeholder="{{ config.masked_username }}"></label>
+    <label>Password (stored encrypted)<input type="password" name="password" autocomplete="new-password" placeholder="Leave blank to keep existing"></label>
+    <div class="remember-row">
+      <input type="checkbox" id="is_enabled" name="is_enabled" {% if config.is_enabled %}checked{% endif %}>
+      <label for="is_enabled">Enable integration for access requests</label>
+    </div>
+    <div class="remember-row">
+      <input type="checkbox" id="automation_acknowledged" name="automation_acknowledged" {% if config.automation_acknowledged %}checked{% endif %}>
+      <label for="automation_acknowledged">I have reviewed PakSEOtools' terms and accept server-controlled isolated sessions</label>
+    </div>
+    <button class="btn primary" type="submit">Save integration settings</button>
+  </form>
+  <div class="tool-creds" style="margin-top:16px;">
+    <div class="tool-cred"><span>Configured user</span><code>{{ config.masked_username }}</code></div>
+    <div class="tool-cred"><span>Integration enabled</span><code>{% if config.is_enabled %}Yes{% else %}No{% endif %}</code></div>
+    <div class="tool-cred"><span>Automation acknowledged</span><code>{% if config.automation_acknowledged %}Yes{% else %}No{% endif %}</code></div>
+    <div class="tool-cred"><span>Ready</span><code>{% if config.integration_ready %}Yes{% else %}No{% endif %}</code></div>
+  </div>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">MEMBER ACCESS</p>
+      <h2>Enable or disable PakSEOtools access</h2>
+    </div>
+    <span class="muted">{{ permissions|length }} member{{ permissions|length|pluralize }}</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Member</th><th>Status</th><th>PakSEOtools access</th><th>Updated</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for p in permissions %}
+        <tr>
+          <td><strong>{{ p.user.get_full_name|default:p.user.username }}</strong><small>@{{ p.user.username }}</small></td>
+          <td><span class="status-pill {{ p.user.profile.status }}">{{ p.user.profile.get_status_display }}</span></td>
+          <td><span class="status-pill {% if p.enabled %}active{% else %}suspended{% endif %}">{% if p.enabled %}Enabled{% else %}Disabled{% endif %}</span></td>
+          <td>{{ p.updated_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            <form method="post" action="{% url 'update_member_tool_access' p.user.id %}" class="status-form">
+              {% csrf_token %}
+              <input type="hidden" name="enabled" value="{% if p.enabled %}off{% else %}on{% endif %}">
+              {% if p.enabled %}
+                <button class="btn danger small-btn" type="submit">Disable &amp; revoke</button>
+              {% else %}
+                <button class="btn primary small-btn" type="submit">Enable access</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="empty">No team members yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">ACTIVE SESSIONS</p><h2>Revoke sessions immediately</h2></div>
+    <span class="muted">{{ active_session_count }} active</span>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Member</th><th>Status</th><th>Started</th><th>Last seen</th><th>IP</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for s in sessions %}
+        <tr>
+          <td><strong>{{ s.user.get_full_name|default:s.user.username }}</strong><small>@{{ s.user.username }}</small></td>
+          <td><span class="status-pill {{ s.status }}">{{ s.get_status_display }}</span></td>
+          <td>{{ s.started_at|date:"Y-m-d H:i" }}</td>
+          <td>{{ s.last_seen_at|date:"Y-m-d H:i" }}</td>
+          <td>{{ s.ip_address|default:"—" }}</td>
+          <td>
+            {% if s.status == "active" %}
+            <form method="post" action="{% url 'revoke_tool_session' s.id %}" class="inline">
+              {% csrf_token %}
+              <button class="btn danger small-btn" type="submit">Revoke now</button>
+            </form>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="empty">No sessions recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel table-panel">
+  <div class="panel-heading">
+    <div><p class="eyebrow">AUDIT LOG</p><h2>Recent access events</h2></div>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Time</th><th>Member</th><th>Action</th><th>Status</th><th>IP</th><th>Details</th></tr></thead>
+      <tbody>
+      {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+          <td>{% if log.user %}{{ log.user.username }}{% else %}—{% endif %}</td>
+          <td>{{ log.get_action_display }}</td>
+          <td>{{ log.status|default:"—" }}</td>
+          <td>{{ log.ip_address|default:"—" }}</td>
+          <td>{{ log.details|default:"—"|truncatechars:80 }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="empty">No events logged yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
