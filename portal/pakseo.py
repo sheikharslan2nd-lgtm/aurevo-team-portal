@@ -8,9 +8,83 @@ implementing an insecure workaround.
 
 import json
 import os
+import re
 from pathlib import Path
 
 from django.conf import settings
+
+
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/151.0.0.0 Safari/537.36"
+)
+
+
+def pakseo_http_login(username, password, login_url):
+    """Log in server-side with a plain HTTP session.
+
+    This is the deployment-friendly path: it works on hosts (including
+    Vercel) where a browser binary is unavailable. It does not bypass
+    CAPTCHA/MFA; if a challenge is detected the login is refused.
+    """
+
+    result = {"ok": False, "cookies": [], "user_agent": "", "error": ""}
+    try:
+        import requests
+    except Exception as exc:  # pragma: no cover
+        result["error"] = f"requests is not available: {exc}"
+        return result
+
+    session = requests.Session()
+    session.headers.update({"User-Agent": DEFAULT_USER_AGENT})
+    try:
+        page = session.get(login_url, timeout=30)
+        html = page.text
+        lower = html.lower()
+        # Refuse to bypass a visible CAPTCHA challenge.
+        if "g-recaptcha" in lower or "h-captcha" in lower or "cf-turnstile" in lower:
+            result["error"] = "PakSEOtools presented a CAPTCHA/human-verification challenge; automated login is not permitted."
+            return result
+
+        data = {
+            "amember_login": username,
+            "amember_pass": password,
+        }
+        match = re.search(r'name="login_attempt_id"\s+value="([^"]+)"', html)
+        if match:
+            data["login_attempt_id"] = match.group(1)
+
+        action_match = re.search(r'<form[^>]+name="login"[^>]+action="([^"]+)"', html)
+        action = action_match.group(1) if action_match else login_url
+        if action.startswith("/"):
+            from urllib.parse import urljoin
+
+            action = urljoin(login_url, action)
+
+        response = session.post(action, data=data, timeout=30, allow_redirects=True)
+        body = response.text
+        body_lower = body.lower()
+        if "user name or password is incorrect" in body_lower or "invalid username" in body_lower:
+            result["error"] = "PakSEOtools rejected the stored credentials."
+            return result
+        if "captcha" in body_lower and "incorrect" not in body_lower:
+            result["error"] = "PakSEOtools requires CAPTCHA/MFA; automated login is not permitted."
+            return result
+        still_login = ('name="amember_login"' in body) and ('name="amember_pass"' in body)
+        if still_login:
+            result["error"] = "Login failed. Check the stored credentials or whether MFA/CAPTCHA is required."
+            return result
+
+        result["ok"] = True
+        result["cookies"] = [
+            {"name": cookie.name, "value": cookie.value, "domain": cookie.domain, "path": cookie.path}
+            for cookie in session.cookies
+        ]
+        result["user_agent"] = DEFAULT_USER_AGENT
+    except Exception as exc:
+        result["error"] = str(exc)
+    return result
 
 
 def chrome_executable_path():

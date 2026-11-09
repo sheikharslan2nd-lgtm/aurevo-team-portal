@@ -7,4 +7,3 @@ pycountry>=24.6
 Pillow>=10.4,<11
 cryptography>=42,<44
 requests>=2.31,<3
-playwright>=1.40,<2

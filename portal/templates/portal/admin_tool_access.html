@@ -17,7 +17,7 @@
   <strong>Integration not ready</strong>
   <p>PakSEOtools access is disabled. Configure encrypted credentials, enable the integration, and acknowledge the automation notice below before members can use it.</p>
   {% if not config.automation_acknowledged %}
-  <small>Automation acknowledgement is required because PakSEOtools does not provide an official API, SSO or OAuth. Review its terms before enabling server-controlled sessions.</small>
+  <small>PakSEOtools does not provide an official API, SSO or OAuth. The portal uses a server-controlled isolated session (server-side login + authenticated proxy) without bypassing CAPTCHA/MFA. Review PakSEOtools' terms before enabling access.</small>
   {% endif %}
 </div>
 {% endif %}

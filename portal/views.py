@@ -21,7 +21,7 @@ from .models import (
     ToolIntegrationConfig, ToolAccessPermission, ToolAccessSession, ToolAccessLog,
 )
 from .crypto import decrypt_value, encrypt_value
-from .pakseo import pakseo_login, serialize_cookies, deserialize_cookies
+from .pakseo import pakseo_http_login, serialize_cookies, deserialize_cookies
 
 
 def _is_admin(user):
@@ -693,14 +693,17 @@ def access_pakseotools(request):
         expires_at=timezone.now() + timedelta(minutes=30),
     )
 
-    result = pakseo_login(username, password, config.login_url)
+    result = pakseo_http_login(username, password, config.login_url)
     if not result.get("ok"):
         session.status = "failed"
         session.error_message = result.get("error", "Unknown error")
         session.mark_ended("failed")
         _log_tool_action(request.user, "session_failed", status="failed", session=session, request=request,
                          details=result.get("error", ""))
-        messages.error(request, "PakSEOtools is temporarily unavailable: " + result.get("error", "Unknown error"))
+        messages.error(
+            request,
+            "PakSEOtools is temporarily unavailable. Please contact an admin.",
+        )
         return redirect("dashboard")
 
     session.cookies_encrypted = encrypt_value(serialize_cookies(result.get("cookies", [])))

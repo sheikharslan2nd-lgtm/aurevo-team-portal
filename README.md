@@ -90,7 +90,7 @@ The portal now includes a **Tool Access Management** section (admin panel → "M
 
 1. Open **Admin panel → Tool Access Management**.
 2. Enter the PakSEOtools login URL, member URL, username and password. Credentials are encrypted at rest with the Django `SECRET_KEY` and are never rendered to the frontend.
-3. Enable the integration and acknowledge the automation notice. PakSEOtools does not provide an official API, SSO or OAuth, so review its terms before enabling server-controlled sessions.
+3. Enable the integration and acknowledge the automation notice. PakSEOtools does not provide an official API, SSO or OAuth. The portal uses a server-controlled isolated session (server-side login plus an authenticated proxy) and never bypasses CAPTCHA/MFA. Review PakSEOtools' terms before enabling access.
 4. For each team member, use **Enable access** / **Disable & revoke**. Disabling immediately terminates any active session.
 5. Members see a **PakSEOtools** card on their dashboard with an **Access Tool** button. Only approved members with enabled access can open a server-side isolated session.
 6. Admins can revoke any active session instantly from **Active sessions**. Every access, denial, session start/end and revocation is recorded in the audit log.
