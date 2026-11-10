@@ -703,8 +703,12 @@ def access_pakseotools(request):
     if permission is None or not permission.enabled:
         return deny("You are not authorized to access PakSEOtools.")
 
-    # Terminate any expired sessions first.
-    _active_tool_session(request.user)
+    # Reuse this member's existing isolated session instead of logging in
+    # again. This avoids unnecessary PakSEOtools login attempts (and rate
+    # limits) while never sharing a session between different members.
+    existing = _active_tool_session(request.user)
+    if existing is not None:
+        return redirect("pakseotools_session", token=existing.token)
 
     username, password = config.get_credentials()
     from django.utils import timezone
