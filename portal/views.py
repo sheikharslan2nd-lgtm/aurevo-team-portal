@@ -11,7 +11,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
-from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.clickjacking import xframe_options_exempt
 import json
 import uuid
 from datetime import timedelta
@@ -786,19 +786,26 @@ def end_pakseotools_session(request, token):
     return redirect("dashboard")
 
 
+def _same_origin_frame_response(response):
+    """Allow only this portal to embed the proxied tool page."""
+    response["X-Frame-Options"] = "SAMEORIGIN"
+    response["Content-Security-Policy"] = "frame-ancestors 'self'"
+    return response
+
+
 @login_required
-@xframe_options_sameorigin
+@xframe_options_exempt
 def pakseotools_proxy(request, path=""):
     if not _member_profile_ok(request):
-        return HttpResponseForbidden("Authentication required.")
+        return _same_origin_frame_response(HttpResponseForbidden("Authentication required."))
     session = _active_tool_session(request.user)
     if session is None:
-        return HttpResponseForbidden("No active PakSEOtools session.")
+        return _same_origin_frame_response(HttpResponseForbidden("No active PakSEOtools session."))
     config = ToolIntegrationConfig.get_solo()
     permission = _tool_permission_for(request.user)
     if not config.integration_ready or permission is None or not permission.enabled:
         _terminate_user_tool_sessions(request.user, status="revoked")
-        return HttpResponseForbidden("Access revoked.")
+        return _same_origin_frame_response(HttpResponseForbidden("Access revoked."))
 
     import requests as _requests
 
@@ -839,7 +846,7 @@ def pakseotools_proxy(request, path=""):
     except Exception as exc:
         _log_tool_action(request.user, "session_failed", status="failed", session=session, request=request,
                          details=str(exc))
-        return HttpResponse("Upstream request failed.", status=502)
+        return _same_origin_frame_response(HttpResponse("Upstream request failed.", status=502))
 
     # Persist refreshed cookies.
     refreshed = [
@@ -863,7 +870,7 @@ def pakseotools_proxy(request, path=""):
         response = HttpResponse(status=upstream.status_code)
         if location:
             response["Location"] = location
-        return response
+        return _same_origin_frame_response(response)
 
     content = upstream.content
     content_type = upstream.headers.get("Content-Type", "")
@@ -881,4 +888,4 @@ def pakseotools_proxy(request, path=""):
     for header in ("Content-Disposition", "Cache-Control"):
         if header in upstream.headers:
             response[header] = upstream.headers[header]
-    return response
+    return _same_origin_frame_response(response)
