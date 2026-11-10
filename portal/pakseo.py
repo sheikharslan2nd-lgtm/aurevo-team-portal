@@ -68,12 +68,19 @@ def pakseo_http_login(username, password, login_url):
         if "user name or password is incorrect" in body_lower or "invalid username" in body_lower:
             result["error"] = "PakSEOtools rejected the stored credentials."
             return result
-        if "captcha" in body_lower and "incorrect" not in body_lower:
-            result["error"] = "PakSEOtools requires CAPTCHA/MFA; automated login is not permitted."
+        wait_match = re.search(r"please wait\s+(\d+)\s+seconds", body, re.IGNORECASE)
+        if wait_match:
+            result["error"] = (
+                "PakSEOtools rate limit reached: please wait "
+                f"{wait_match.group(1)} seconds before trying again."
+            )
             return result
         still_login = ('name="amember_login"' in body) and ('name="amember_pass"' in body)
         if still_login:
-            result["error"] = "Login failed. Check the stored credentials or whether MFA/CAPTCHA is required."
+            if "captcha" in body_lower:
+                result["error"] = "PakSEOtools requires CAPTCHA/MFA; automated login is not permitted."
+            else:
+                result["error"] = "Login failed. Check the stored credentials or whether MFA/CAPTCHA is required."
             return result
 
         result["ok"] = True
