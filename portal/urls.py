@@ -22,6 +22,7 @@ urlpatterns = [
     path("admin-panel/tools/member/<int:user_id>/access/", views.update_member_tool_access, name="update_member_tool_access"),
     path("admin-panel/tools/sessions/<int:session_id>/revoke/", views.revoke_tool_session, name="revoke_tool_session"),
     path("admin-panel/tools/toggle/", views.toggle_tool_integration, name="toggle_tool_integration"),
+    path("admin-panel/tools/test/", views.test_tool_connection, name="test_tool_connection"),
     path("admin-panel/member/<int:user_id>/status/", views.update_member_status, name="update_member_status"),
     path("admin-panel/member/<int:user_id>/delete/", views.delete_member, name="delete_member"),
     path("admin-panel/leaders/new/", views.create_team_leader, name="create_team_leader"),

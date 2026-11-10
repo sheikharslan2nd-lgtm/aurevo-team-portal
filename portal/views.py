@@ -644,6 +644,30 @@ def revoke_tool_session(request, session_id):
 @login_required
 @user_passes_test(_is_admin)
 @require_POST
+def test_tool_connection(request):
+    config = ToolIntegrationConfig.get_solo()
+    username, password = config.get_credentials()
+    if not username or not password:
+        messages.error(request, "No credentials configured. Add the PakSEOtools username and password first.")
+        return redirect("admin_tool_access")
+    result = pakseo_http_login(username, password, config.login_url)
+    if result.get("ok"):
+        messages.success(request, "Connection successful. PakSEOtools login worked with the stored credentials.")
+    else:
+        messages.error(request, f"Connection failed: {result.get('error') or 'Unknown error'}")
+    _log_tool_action(
+        request.user,
+        "session_failed" if not result.get("ok") else "session_started",
+        status="test",
+        request=request,
+        details=f"connection test: {result.get('error') or 'ok'}",
+    )
+    return redirect("admin_tool_access")
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
 def toggle_tool_integration(request):
     config = ToolIntegrationConfig.get_solo()
     config.is_enabled = request.POST.get("is_enabled") == "on"

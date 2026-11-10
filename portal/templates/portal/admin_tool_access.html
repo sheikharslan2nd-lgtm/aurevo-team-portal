@@ -45,7 +45,10 @@
       <input type="checkbox" id="automation_acknowledged" name="automation_acknowledged" {% if config.automation_acknowledged %}checked{% endif %}>
       <label for="automation_acknowledged">I have reviewed PakSEOtools' terms and accept server-controlled isolated sessions</label>
     </div>
-    <button class="btn primary" type="submit">Save integration settings</button>
+    <div class="hero-actions">
+      <button class="btn primary" type="submit">Save integration settings</button>
+      <button class="btn secondary" type="submit" formaction="{% url 'test_tool_connection' %}">Test connection</button>
+    </div>
   </form>
   <div class="tool-creds" style="margin-top:16px;">
     <div class="tool-cred"><span>Configured user</span><code>{{ config.masked_username }}</code></div>
@@ -100,7 +103,7 @@
   </div>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Member</th><th>Status</th><th>Started</th><th>Last seen</th><th>IP</th><th>Action</th></tr></thead>
+      <thead><tr><th>Member</th><th>Status</th><th>Started</th><th>Last seen</th><th>IP</th><th>Detail</th><th>Action</th></tr></thead>
       <tbody>
       {% for s in sessions %}
         <tr>
@@ -109,6 +112,7 @@
           <td>{{ s.started_at|date:"Y-m-d H:i" }}</td>
           <td>{{ s.last_seen_at|date:"Y-m-d H:i" }}</td>
           <td>{{ s.ip_address|default:"—" }}</td>
+          <td>{{ s.error_message|default:"—"|truncatechars:70 }}</td>
           <td>
             {% if s.status == "active" %}
             <form method="post" action="{% url 'revoke_tool_session' s.id %}" class="inline">
@@ -121,7 +125,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" class="empty">No sessions recorded yet.</td></tr>
+        <tr><td colspan="7" class="empty">No sessions recorded yet.</td></tr>
       {% endfor %}
       </tbody>
     </table>
