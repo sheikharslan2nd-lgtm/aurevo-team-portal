@@ -11,6 +11,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 import json
 import uuid
 from datetime import timedelta
@@ -786,6 +787,7 @@ def end_pakseotools_session(request, token):
 
 
 @login_required
+@xframe_options_sameorigin
 def pakseotools_proxy(request, path=""):
     if not _member_profile_ok(request):
         return HttpResponseForbidden("Authentication required.")
